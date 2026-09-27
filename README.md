@@ -63,8 +63,10 @@ ZCode 的第三方 Android 客户端 —— 原生 Kotlin 实现 ZCode 中继协
 
 # Android APK
 ./gradlew :app:assembleDebug      # -> app/build/outputs/apk/debug/
-./gradlew :app:assembleRelease    # 未签名，需自备 keystore
+./gradlew :app:assembleRelease    # 有 keystore.properties 时已签名
 ```
+
+Release 签名从仓库根目录的 `keystore.properties`（gitignored）读取，本地与 CI 使用同一份密钥，产物可互相覆盖安装。没有该文件时 release 构建回退为未签名，不影响其他模块。每次推送到 GitHub 会自动构建 release APK 并发布 prerelease（见 [.github/workflows/ci.yml](.github/workflows/ci.yml)）。
 
 如果 `dl.google.com` / `repo1.maven.org` 不可达（例如在中国大陆），用附带的镜像脚本：
 
@@ -134,7 +136,6 @@ printf '%s' "<remote url>" > tools/relay-probe/link.txt
 - 终端视图、真实 diff 视图尚未实现
 - 扫码的解码路径经单元测试验证，但尚未扫过实物码
 - WebSocket 分片重组（`fragmentCount > 1`）按参考实现推导，未在实测中触发
-- Release 构建未签名，发布前需自备 keystore
 
 ## 安全
 
