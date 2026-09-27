@@ -5,13 +5,15 @@ pluginManagement {
         gradlePluginPortal()
     }
     plugins {
-        kotlin("jvm") version "2.1.0"
+        // One Kotlin version everywhere: mixing KGP releases in one build
+        // clashes on Kotlin/Native build-service singletons.
+        kotlin("jvm") version "2.1.21"
         kotlin("multiplatform") version "2.1.21"
-        id("org.jetbrains.kotlin.android") version "2.1.0"
-        id("org.jetbrains.kotlin.plugin.compose") version "2.1.0"
+        id("org.jetbrains.kotlin.android") version "2.1.21"
+        id("org.jetbrains.kotlin.plugin.compose") version "2.1.21"
         id("com.android.application") version "8.7.3"
+        id("com.android.library") version "8.7.3"
         id("org.jetbrains.compose") version "1.8.2"
-        id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21" apply false
     }
 }
 
@@ -19,6 +21,7 @@ rootProject.name = "zcode-mobile"
 
 include(":protocol")
 include(":verify")
+include(":shared")
 
 // The Android application module requires the Android SDK, and the Android
 // Gradle plugin cannot be resolved without it. Including :app unconditionally
