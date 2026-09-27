@@ -1,5 +1,7 @@
 package dev.zcodemobile.shared.platform
 
+import dev.zcodemobile.shared.data.UiPrefs
+import kotlinx.coroutines.flow.StateFlow
 import platform.Foundation.NSUserDefaults
 
 /**
@@ -12,7 +14,7 @@ class IosUiPrefs : UiPrefs {
     private val _msgFontScale = kotlinx.coroutines.flow.MutableStateFlow(
         defaults.doubleForKey(KEY_MSG_SCALE).takeIf { it > 0 }?.toFloat() ?: 1f,
     )
-    override val msgFontScale: kotlinx.coroutines.flow.StateFlow<Float> = _msgFontScale
+    override val msgFontScale: StateFlow<Float> = _msgFontScale
 
     override fun setMsgFontScale(scale: Float) {
         defaults.setDouble(scale.toDouble(), KEY_MSG_SCALE)

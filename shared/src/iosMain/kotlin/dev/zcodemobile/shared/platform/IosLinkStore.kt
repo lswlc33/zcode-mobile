@@ -72,7 +72,7 @@ class IosLinkStore : LinkStore {
             link.deviceName ?: "",
             link.appVersion ?: "",
             label ?: "",
-            (NSDate().timeIntervalSince1970 * 1000).toLong().toString(),
+            (NSDate.date.timeIntervalSince1970 * 1000).toLong().toString(),
         ).joinToString("\u0000")
 
         keychainSet(account = key(id), value = serialized)
@@ -134,8 +134,8 @@ class IosLinkStore : LinkStore {
 
     /** NSString bridges to CFStringRef; keep the pointer form for CF calls. */
     @Suppress("UNCHECKED_CAST")
-    private fun cfStr(s: String): CPointer<CFStringRef> =
-        NSString.create(string = s) as CPointer<CFStringRef>
+    private fun cfStr(s: String): CFStringRef =
+        NSString.create(string = s) as CFStringRef
 
     @Suppress("UNCHECKED_CAST", "CAST_PRIMARY_TO_ANY")
     private fun newMutableDict(capacity: Int): CFDictionaryRef =
