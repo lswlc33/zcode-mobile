@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
+
 package dev.zcodemobile.shared.platform
 
 import dev.zcodemobile.protocol.RemoteLink
@@ -120,7 +122,7 @@ class IosLinkStore : LinkStore {
 
     private fun baseQuery(account: String): NSMutableDictionary {
         val q = NSMutableDictionary()
-        q.setObjectForKey(NSString.create(string = kSecClassGenericPassword as String), kSecClass)
+        q.setObjectForKey(kSecClassGenericPassword as NSString, kSecClass)
         q.setObjectForKey(NSString.create(string = SERVICE), kSecAttrService)
         q.setObjectForKey(NSString.create(string = account), kSecAttrAccount)
         return q
@@ -133,7 +135,7 @@ class IosLinkStore : LinkStore {
             NSString.create(string = value).dataUsingEncoding(NSUTF8StringEncoding)!!,
             kSecValueData,
         )
-        q.setObjectForKey(NSString.create(string = kSecAttrAccessibleAfterFirstUnlock as String), kSecAttrAccessible)
+        q.setObjectForKey(kSecAttrAccessibleAfterFirstUnlock as NSString, kSecAttrAccessible)
         SecItemAdd(q, null)
     }
 
