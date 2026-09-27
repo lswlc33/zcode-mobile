@@ -107,25 +107,6 @@ jobs:
 
       # 模拟器目的地的未签名构建（generic 不行——模拟器 framework 只在
       #iphonesimulator SDK 下产出）。产物是 .app，随后打包成可分发的 IPA。
-      - name: 调试：检查资产目录
-        run: |
-          find iosApp/Assets.xcassets -type f | head -10
-          cat iosApp/Assets.xcassets/AppIcon.appiconset/Contents.json
-          plutil -lint iosApp/ZcodeMobile/Info.plist
-
-      - name: 调试 framework 内容
-        run: |
-          FW=shared/build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework
-          ls "$FW"
-          echo "--- our symbols in header ---"
-          grep -cE "AppModel|IosLinkStore|MainViewController|AppServices" "$FW/Headers/ZcodeShared.h" || true
-          grep -nE "MainViewController" "$FW/Headers/ZcodeShared.h" | head -5 || true
-          echo "--- interface count ---"
-          grep -c "@interface" "$FW/Headers/ZcodeShared.h" || true
-          echo "--- nm symbol count ---"
-          nm "$FW/ZcodeShared" 2>/dev/null | wc -l || true
-          nm "$FW/ZcodeShared" 2>/dev/null | grep -ciE "MainViewController" || true
-
       - name: Xcode 构建未签名模拟器 app
         run: |
           set -euo pipefail

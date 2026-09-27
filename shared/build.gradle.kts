@@ -64,16 +64,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-}
-tasks.register("printSharedSrcDirs") {
-    doLast {
-        kotlin.sourceSets
-            .filter { it.name.contains("ios", ignoreCase = true) || it.name == "commonMain" }
-            .forEach { println("SRCSET ${it.name}: " + it.kotlin.srcDirs) }
-    }
-}
-
-tasks.register("checkFrameworkHeader") {
+}tasks.register("checkFrameworkHeader") {
     doLast {
         val fw = file("build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework/Headers/ZcodeShared.h")
         if (fw.exists()) {
