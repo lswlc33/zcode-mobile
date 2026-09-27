@@ -131,13 +131,16 @@ class IosLinkStore : LinkStore {
     // ── Keychain helpers (raw CFDictionary queries) ───────────────────────
 
     /** NSString bridges to CFStringRef; keep the pointer form for CF calls. */
-    private fun cfStr(s: String): CPointer<CFStringRef>? =
-        (NSString.create(string = s) as Any) as? CPointer<CFStringRef>
+    @Suppress("UNCHECKED_CAST")
+    private fun cfStr(s: String): CPointer<CFStringRef> =
+        NSString.create(string = s) as CPointer<CFStringRef>
 
-    private fun newMutableDict(capacity: Int): CPointer<*> =
-        CFDictionaryCreateMutable(kCFAllocatorDefault, capacity.convert(), null, null) as CPointer<*>
+    @Suppress("UNCHECKED_CAST")
+    private fun newMutableDict(capacity: Int): CPointer<platform.CoreFoundation.__CFDictionary> =
+        CFDictionaryCreateMutable(kCFAllocatorDefault, capacity.convert(), null, null)
+            as CPointer<platform.CoreFoundation.__CFDictionary>
 
-    private fun queryBase(account: String): CPointer<*> {
+    private fun queryBase(account: String): CPointer<platform.CoreFoundation.__CFDictionary> {
         val dict = newMutableDict(3)
         CFDictionaryAddValue(dict, kSecClass, kSecClassGenericPassword)
         CFDictionaryAddValue(dict, kSecAttrService, cfStr(SERVICE))
