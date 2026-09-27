@@ -113,6 +113,17 @@ jobs:
           cat iosApp/Assets.xcassets/AppIcon.appiconset/Contents.json
           plutil -lint iosApp/ZcodeMobile/Info.plist
 
+      - name: 调试 framework 内容
+        run: |
+          FW=shared/build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework
+          ls "$FW" || true
+          echo "--- Headers ---"
+          cat "$FW/Headers/ZcodeShared.h" 2>/dev/null | grep -iE "MainView|interface" | head -10
+          echo "--- Modules ---"
+          ls "$FW/Modules" 2>/dev/null || true
+          echo "--- symbols ---"
+          nm -gU "$FW/ZcodeShared" 2>/dev/null | grep -i mainview | head -5
+
       - name: Xcode 构建未签名模拟器 app
         run: |
           set -euo pipefail
