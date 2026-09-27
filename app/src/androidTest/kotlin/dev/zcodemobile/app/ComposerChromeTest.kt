@@ -4,7 +4,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -15,6 +17,7 @@ import dev.zcodemobile.app.ui.conversation.ConversationScreen
 import dev.zcodemobile.app.ui.theme.ZCodeTheme
 import dev.zcodemobile.protocol.ConversationReducer
 import dev.zcodemobile.protocol.ConversationState
+import dev.zcodemobile.protocol.BackgroundWork
 import dev.zcodemobile.protocol.ContextUsage
 import dev.zcodemobile.protocol.GoalState
 import dev.zcodemobile.protocol.ModelOption
@@ -53,6 +56,13 @@ class ComposerChromeTest {
 
     private fun render(dark: Boolean, modelLabel: String, name: String) {
         setScreen(dark, modelLabel)
+        compose.waitForIdle()
+        // The one-shot initial snap races first layout under a fabricated
+        // state (hasSnapshot is true from frame 0), so the list can start at
+        // the top. Taking the user path — the jump-to-tail pill — makes the
+        // tail capture deterministic either way.
+        val pill = compose.onAllNodesWithContentDescription("回到最新")
+        if (pill.fetchSemanticsNodes().isNotEmpty()) pill[0].performClick()
         compose.waitForIdle()
         capture(name)
 
@@ -105,6 +115,13 @@ class ComposerChromeTest {
     }
 
     private fun demoState(modelLabel: String) = ConversationUiState(
+        git = dev.zcodemobile.protocol.GitRepoInfo(
+            isRepository = true,
+            repoName = "zcode-mobile",
+            currentBranch = "master",
+            ahead = 2,
+            behind = 1,
+        ),
         conversation = ConversationState(
             sessionId = "sess_demo",
             title = "完善 gitingro 和 README",
@@ -128,6 +145,15 @@ class ComposerChromeTest {
                 status = "active",
                 iteration = 2,
                 timeUsedSeconds = 240,
+            ),
+            backgroundWorks = listOf(
+                BackgroundWork(
+                    workId = "work_1",
+                    kind = "subagent",
+                    title = "Run protocol and app JVM unit tests",
+                    status = "resultPending",
+                    cancellable = true,
+                ),
             ),
         ),
         models = listOf(

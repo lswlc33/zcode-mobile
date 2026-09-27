@@ -95,6 +95,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.text.font.FontFamily
@@ -275,10 +277,13 @@ fun ConversationScreen(
     ) {
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        // The status strip (queue/goal/background work) adds height to the
-        // bottom stack whenever it is visible.
-        val hasStatusStrip = conv.queue.items.isNotEmpty() || conv.goal != null
-        val bottomReserve = navBottom + 160.dp + if (hasStatusStrip) 52.dp else 0.dp
+        // The status strip (goal/queue/background work) is an overlay whose
+        // height varies with its content — a fixed guess both clipped it and
+        // let it cover the newest rows, so the transcript reserves whatever
+        // the panel actually measures. 160.dp covers the composer itself.
+        var statusStripHeightPx by remember { mutableStateOf(0) }
+        val density = LocalDensity.current
+        val bottomReserve = navBottom + 160.dp + with(density) { statusStripHeightPx.toDp() }
 
         // ── content layer: full-bleed, runs behind both bars ──
         Box(Modifier.fillMaxSize()) {
@@ -471,13 +476,15 @@ fun ConversationScreen(
 
         // ── bottom overlay: status strip + composer ──
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-            SessionStatusPanel(
-                conversation = conv,
-                onQueueAction = onQueueAction,
-                onGoalAction = onGoalAction,
-                onCancelBackgroundWork = onCancelBackgroundWork,
-                onSetGoal = onSetGoal,
-            )
+            Box(Modifier.onSizeChanged { statusStripHeightPx = it.height }) {
+                SessionStatusPanel(
+                    conversation = conv,
+                    onQueueAction = onQueueAction,
+                    onGoalAction = onGoalAction,
+                    onCancelBackgroundWork = onCancelBackgroundWork,
+                    onSetGoal = onSetGoal,
+                )
+            }
 
             Composer(
             git = state.git,
@@ -1717,17 +1724,9 @@ private fun GitRow(git: dev.zcodemobile.protocol.GitRepoInfo, onPickBranch: (Str
             }
         }
 
-        git.repoName?.let {
-            Spacer(Modifier.width(8.dp))
-            Text(
-                it,
-                style = MaterialTheme.typography.labelSmall,
-                color = tokens.secondaryText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
+        // Branch on the left edge, repo identity on the right — one anchor
+        // per side instead of both crowding the start. The weighted spacer
+        // absorbs all slack so the tail stays pinned to the right edge.
         Spacer(Modifier.weight(1f))
 
         if (git.ahead > 0 || git.behind > 0) {
@@ -1738,6 +1737,18 @@ private fun GitRow(git: dev.zcodemobile.protocol.GitRepoInfo, onPickBranch: (Str
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = tokens.secondaryText,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+
+        git.repoName?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.labelSmall,
+                color = tokens.secondaryText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 140.dp),
             )
         }
     }

@@ -892,8 +892,20 @@ private fun toolPreview(row: Row): String {
         .firstOrNull { it.isNotBlank() }
         ?.trim()
         ?.take(160)
+        ?.let(::wrappable)
         .orEmpty()
 }
+
+/**
+ * A Windows/POSIX path is one unbreakable word to the line breaker, and in
+ * `E:\dir\file` the only candidate break lands after the drive colon — the
+ * card then wraps as `E:` / `\dir\file`. Zero-width spaces after the
+ * separators give it real opportunities at directory boundaries instead.
+ * Values containing spaces already break naturally and are left alone.
+ */
+private fun wrappable(s: String): String =
+    if (s.contains(' ')) s
+    else s.replace("\\", "\\\u200b").replace("/", "/\u200b")
 
 private fun durationOf(row: Row): String? {
     fun num(key: String): Long? = (row.raw[key] as? Number)?.toLong()
