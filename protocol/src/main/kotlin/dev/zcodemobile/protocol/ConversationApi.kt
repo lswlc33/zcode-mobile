@@ -86,7 +86,7 @@ class ConversationApi(private val channel: ChannelClient) {
 
     /** Convenience: hello → initialize in one step. Returns the host hello. */
     suspend fun handshake(
-        clientId: String = this.clientId ?: "zcode-mobile-${java.util.UUID.randomUUID()}",
+        clientId: String = this.clientId ?: "zcode-mobile-${randomUuid()}",
         clientKind: String = "mobileApp",
         appVersion: String = "0.1.0",
     ): Map<String, Any?> {
@@ -857,7 +857,7 @@ class ConversationApi(private val channel: ChannelClient) {
         fileName: String,
         mime: String,
         bytes: ByteArray,
-        uploadId: String = "upload-${java.util.UUID.randomUUID()}",
+        uploadId: String = "upload-${randomUuid()}",
         onProgress: ((sent: Int, total: Int) -> Unit)? = null,
     ): AttachmentRef {
         require(bytes.size <= MAX_ATTACHMENT_BYTES) {
@@ -892,7 +892,7 @@ class ConversationApi(private val channel: ChannelClient) {
                         "sessionId" to sessionId,
                         "uploadId" to uploadId,
                         "chunkIndex" to index,
-                        "dataBase64" to java.util.Base64.getEncoder().encodeToString(chunk),
+                        "dataBase64" to Base64.encode(chunk),
                     ),
                 )
                 onProgress?.invoke(index + 1, chunks.size)
@@ -945,10 +945,7 @@ class ConversationApi(private val channel: ChannelClient) {
         return out
     }
 
-    private fun sha256Hex(bytes: ByteArray): String =
-        java.security.MessageDigest.getInstance("SHA-256")
-            .digest(bytes)
-            .joinToString("") { "%02x".format(it) }
+    private fun sha256Hex(bytes: ByteArray): String = sha256(bytes).toHexLower()
 }
 
 /** One terminal `ExitPlanMode` entry. */

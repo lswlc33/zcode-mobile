@@ -1,7 +1,5 @@
 package dev.zcodemobile.protocol
 
-import java.io.ByteArrayOutputStream
-
 /**
  * Minimal VQL (variable-length quantity) codec.
  *
@@ -21,7 +19,7 @@ object Vql {
 
     /** A byte sink that accumulates without copying on every write. */
     class Writer {
-        private val out = ByteArrayOutputStream()
+        private val out = ByteSink()
 
         fun write(bytes: ByteArray) {
             out.write(bytes)

@@ -24,7 +24,7 @@ object Json {
                 val d = (value as Number).toDouble()
                 if (d.isFinite()) sb.append(d) else sb.append("null")
             }
-            is ByteArray -> writeString(sb, java.util.Base64.getEncoder().encodeToString(value))
+            is ByteArray -> writeString(sb, Base64.encode(value))
             is Map<*, *> -> {
                 sb.append('{')
                 var first = true
@@ -63,7 +63,7 @@ object Json {
                 '\t' -> sb.append("\\t")
                 '\b' -> sb.append("\\b")
                 '\u000C' -> sb.append("\\f")
-                else -> if (c < ' ') sb.append("\\u%04x".format(c.code)) else sb.append(c)
+                else -> if (c < ' ') sb.append("\\u").append(c.code.toString(16).padStart(4, '0')) else sb.append(c)
             }
         }
         sb.append('"')

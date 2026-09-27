@@ -39,7 +39,15 @@ object Crc32 {
             }
         }
         crc = crc.inv()
-        return String.format("%08x", crc.toLong() and 0xffffffffL)
+        // 8 lowercase hex chars. Widening through Long keeps the unsigned
+        // value non-negative, which toHexLower() (a ByteArray helper) needs.
+        val v = crc.toLong() and 0xffffffffL
+        val bytes = ByteArray(4)
+        bytes[0] = ((v ushr 24) and 0xff).toByte()
+        bytes[1] = ((v ushr 16) and 0xff).toByte()
+        bytes[2] = ((v ushr 8) and 0xff).toByte()
+        bytes[3] = (v and 0xff).toByte()
+        return bytes.toHexLower()
     }
 }
 

@@ -1,6 +1,5 @@
 package dev.zcodemobile.protocol
 
-import java.util.UUID
 
 /**
  * Builds v4 `CommandEnvelope`s — the complete command surface.
@@ -1066,12 +1065,12 @@ object Commands {
             baseLogEpoch?.let { put("baseLogEpoch", it) }
             put("type", type)
             put("payload", payload)
-            put("issuedAt", System.currentTimeMillis())
+            put("issuedAt", nowMillis())
         }
     }
 
     /** `commandId` is documented as UUID v7; a v4 UUID is accepted in practice. */
-    private fun newCommandId(): String = UUID.randomUUID().toString()
+    private fun newCommandId(): String = randomUuid().toString()
 }
 
 /** `modelSelectionSchema` — `.strict()`, so nothing extra may be added. */

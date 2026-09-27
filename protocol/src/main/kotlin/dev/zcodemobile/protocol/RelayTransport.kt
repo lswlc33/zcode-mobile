@@ -7,11 +7,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import java.net.URLDecoder
-import java.util.Base64
-import java.util.UUID
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 /** A parsed `https://zcode.z.ai/remote/v4?sid=..&hash=..&t=..` link. */
 data class RemoteLink(
@@ -22,7 +17,7 @@ data class RemoteLink(
     val deviceName: String? = null,
     val appVersion: String? = null,
 ) {
-    val ageMillis: Long get() = System.currentTimeMillis() - timestamp
+    val ageMillis: Long get() = nowMillis() - timestamp
 
     companion object {
         private fun q(raw: String, key: String): String? {
@@ -33,7 +28,7 @@ data class RemoteLink(
             val start = idx + marker.length + 1
             var end = raw.indexOf('&', start)
             if (end < 0) end = raw.length
-            return URLDecoder.decode(raw.substring(start, end), "UTF-8")
+            return percentDecode(raw.substring(start, end))
         }
 
         fun parse(raw: String): RemoteLink {
@@ -139,10 +134,11 @@ class RelayTransport(
          * accepted by the live relay.
          */
         fun calculateProof(passHash: String, nonce: String, role: String, deviceSid: String): String {
-            val mac = Mac.getInstance("HmacSHA256")
-            mac.init(SecretKeySpec(passHash.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-            val sig = mac.doFinal("$nonce|$role|$deviceSid".toByteArray(Charsets.UTF_8))
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(sig)
+            val sig = hmacSha256(
+                passHash.toByteArray(),
+                "$nonce|$role|$deviceSid".toByteArray(),
+            )
+            return Base64.encodeUrlNoPad(sig)
         }
 
         /**
@@ -203,7 +199,7 @@ class RelayTransport(
                             "version" to (link.appVersion ?: "web"),
                             "name" to "mobile-browser",
                         ),
-                        "client_ts" to System.currentTimeMillis(),
+                        "client_ts" to nowMillis(),
                     )
                 )
             }
@@ -245,7 +241,7 @@ class RelayTransport(
                         "type" to "auth_response",
                         "device_sid" to link.deviceSid,
                         "proof" to calculateProof(link.passHash, nonce, ROLE, link.deviceSid),
-                        "client_ts" to System.currentTimeMillis(),
+                        "client_ts" to nowMillis(),
                     )
                 )
             }
@@ -274,7 +270,7 @@ class RelayTransport(
             "rpc-frame" -> {
                 ackFrame(payload)
                 Json.asString(payload["dataBase64"])?.let { b64 ->
-                    channelPayloads.send(Base64.getDecoder().decode(b64))
+                    channelPayloads.send(Base64.decode(b64))
                 }
             }
             "rpc-frame-ack" -> Unit
@@ -303,7 +299,7 @@ class RelayTransport(
                     "bridgeGeneration" to payload["bridgeGeneration"],
                     "ackMessageSeq" to messageSeq,
                 ),
-                "client_ts" to System.currentTimeMillis(),
+                "client_ts" to nowMillis(),
             )
         )
     }
@@ -316,7 +312,7 @@ class RelayTransport(
                 linkedMapOf(
                     "type" to "pair_status_query",
                     "device_sid" to link.deviceSid,
-                    "client_ts" to System.currentTimeMillis(),
+                    "client_ts" to nowMillis(),
                 )
             )
         }
@@ -341,7 +337,7 @@ class RelayTransport(
     }
 
     suspend fun bootstrap(): BootstrapResult {
-        val requestId = "bootstrap-${UUID.randomUUID()}"
+        val requestId = "bootstrap-${randomUuid()}"
         val res = controlRequest(
             linkedMapOf("zcode_type" to "bootstrap-request", "requestId" to requestId),
         ) { it["zcode_type"] == "bootstrap-response" && it["requestId"] == requestId }
@@ -373,8 +369,8 @@ class RelayTransport(
 
     /** Open the RPC bridge for one workspace; required before channel traffic. */
     suspend fun openBridge(workspaceKey: String, taskId: String? = null): BridgeInfo {
-        val requestId = "workspace-bridge-${UUID.randomUUID()}"
-        val bridgeSessionId = "bridge-${UUID.randomUUID()}"
+        val requestId = "workspace-bridge-${randomUuid()}"
+        val bridgeSessionId = "bridge-${randomUuid()}"
         val ready = controlRequest(
             linkedMapOf(
                 "zcode_type" to "workspace-bridge-open",
@@ -413,7 +409,7 @@ class RelayTransport(
                 "checksum" to linkedMapOf("algorithm" to "crc32", "value" to Crc32.hex(bytes)),
                 "fragmentIndex" to 0,
                 "fragmentCount" to 1,
-                "dataBase64" to Base64.getEncoder().encodeToString(bytes),
+                "dataBase64" to Base64.encode(bytes),
             )
         )
     }
@@ -423,7 +419,7 @@ class RelayTransport(
             linkedMapOf(
                 "type" to "data",
                 "payload" to payload,
-                "client_ts" to System.currentTimeMillis(),
+                "client_ts" to nowMillis(),
             )
         )
     }
