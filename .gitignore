@@ -1,0 +1,42 @@
+# Build output
+build/
+.gradle/
+.kotlin/
+bin/
+*.apk
+*.aab
+*.ap_
+*.dex
+local.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+captures/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Signing keys — never commit a keystore.
+*.jks
+*.keystore
+keystore.properties
+
+# Secrets — the relay link is a temporary key to a paired desktop.
+# Never commit it.
+link.txt
+
+# Relay-probe capture artifacts hold real session traffic; only the
+# .mjs reference sources belong in the repository.
+tools/relay-probe/*
+!tools/relay-probe/*.mjs
+_relay_probe/
+
+# Local verification screenshots (adb screencap output)
+.shots/
+
+# Runtime logs
+logs/
+*.log

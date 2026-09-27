@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#161616</color>
+
+    <!-- Must stay in sync with ZcColors.LightBg / DarkBg. -->
+    <color name="zc_window_background">#FFFFFFFF</color>
+</resources>

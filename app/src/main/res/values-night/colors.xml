@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Must stay in sync with ZcColors.DarkBg. -->
+    <color name="zc_window_background">#FF191919</color>
+</resources>

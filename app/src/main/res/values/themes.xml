@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The window background must match the Compose surface, otherwise the
+      platform theme shows through wherever a screen forgets to paint (or
+      during the first frame) and the page reads as muddy gray.
+    -->
+    <style name="Theme.ZCodeMobile" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/zc_window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

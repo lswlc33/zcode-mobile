@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext is permitted because a self-hosted ZCode server is reached over
+  plain http on a LAN by design, and Android's network security config cannot
+  wildcard private IP ranges (there is no CIDR support), so a strict policy
+  would silently break self-hosted connections on arbitrary addresses.
+
+  This does not weaken the hosted path: the relay URL is hard-coded to
+  wss://zcode.z.ai, so TLS is always used there. Permitting cleartext merely
+  allows a user-supplied http:// address; it never downgrades an https URL.
+
+  Tighten this to a domain-config if you only ever use the hosted relay.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
