@@ -4,18 +4,18 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dev.zcodemobile.protocol.RemoteLink
+import dev.zcodemobile.shared.data.LinkStore
+import dev.zcodemobile.shared.data.SavedLink
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Persists desktop pairing links.
- *
- * The link's `hash` is an HMAC key that authenticates this device to the
- * relay — anyone holding it can drive the paired desktop. It is stored via
- * [EncryptedSharedPreferences] (Android Keystore-backed) and never logged.
+ * Android [LinkStore]: EncryptedSharedPreferences (Android Keystore-backed).
+ * The link's `hash` is an HMAC key for the relay; it never leaves this store
+ * in logs.
  */
-class LinkStore(context: Context) {
+class AndroidLinkStore(context: Context) : LinkStore {
 
     private val prefs = EncryptedSharedPreferences.create(
         context,
@@ -28,9 +28,9 @@ class LinkStore(context: Context) {
     )
 
     private val _links = MutableStateFlow(loadAll())
-    val links: StateFlow<List<SavedLink>> = _links.asStateFlow()
+    override val links: StateFlow<List<SavedLink>> = _links.asStateFlow()
 
-    fun save(link: RemoteLink, label: String?) {
+    override fun save(link: RemoteLink, label: String?) {
         val id = link.deviceMid ?: link.deviceSid
         prefs.edit()
             .putString(key(id), serialize(link, label))
@@ -38,12 +38,10 @@ class LinkStore(context: Context) {
         _links.value = loadAll()
     }
 
-    fun remove(id: String) {
+    override fun remove(id: String) {
         prefs.edit().remove(key(id)).apply()
         _links.value = loadAll()
     }
-
-    fun get(id: String): SavedLink? = _links.value.firstOrNull { it.id == id }
 
     private fun key(id: String) = "link.$id"
 
@@ -84,17 +82,4 @@ class LinkStore(context: Context) {
     private companion object {
         const val FILE_NAME = "zcode_links"
     }
-}
-
-data class SavedLink(
-    val id: String,
-    val link: RemoteLink,
-    val label: String?,
-    val savedAt: Long,
-) {
-    /** The relay link is a temporary key; surface its staleness. */
-    val ageMillis: Long get() = System.currentTimeMillis() - link.timestamp
-
-    val displayName: String
-        get() = label ?: link.deviceName ?: link.deviceMid ?: link.deviceSid
 }

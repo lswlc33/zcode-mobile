@@ -147,9 +147,25 @@ internal object PathParser {
             skipWs()
             val start = i
             if (i < s.length && (s[i] == '-' || s[i] == '+')) i++
-            while (i < s.length && (s[i].isDigit() || s[i] == '.' || s[i] == 'e' || s[i] == 'E' ||
-                        ((s[i] == '-' || s[i] == '+') && (s[i - 1] == 'e' || s[i - 1] == 'E')))
-            ) i++
+            var seenDot = false
+            var seenExp = false
+            while (i < s.length) {
+                val c = s[i]
+                when {
+                    c.isDigit() -> i++
+                    c == '.' && !seenDot && !seenExp -> { seenDot = true; i++ }
+                    // A second dot ends this number: SVG packs "1.5.5" = 1.5, .5.
+                    (c == 'e' || c == 'E') && !seenExp && i > start -> {
+                        // Only an exponent if followed by digits (possibly signed).
+                        val n = s.getOrNull(i + 1)
+                        val n2 = if (n == '-' || n == '+') s.getOrNull(i + 2) else n
+                        if (n2 != null && n2.isDigit()) { seenExp = true; i += if (n == '-' || n == '+') 2 else 1 } else break
+                    }
+                    (c == '-' || c == '+') && i > start &&
+                        (s[i - 1] == 'e' || s[i - 1] == 'E') && seenExp -> i++
+                    else -> break
+                }
+            }
             if (start == i) throw IllegalArgumentException("path: expected number at $i")
             return s.substring(start, i).toFloat()
         }
