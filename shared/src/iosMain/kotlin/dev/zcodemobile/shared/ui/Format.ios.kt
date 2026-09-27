@@ -1,7 +1,6 @@
 package dev.zcodemobile.shared.ui
 
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.useContents
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarUnitDay
 import platform.Foundation.NSCalendarUnitHour
@@ -21,20 +20,28 @@ internal actual fun localTimeFields(millis: Long): LocalTimeFields {
             NSCalendarUnitHour or NSCalendarUnitMinute,
         date,
     )
-    val fields = LocalTimeFields(
-        year = comps.year.toInt(),
-        month = comps.month.toInt(),
-        day = comps.day.toInt(),
+    val y = comps.year.toInt()
+    val m = comps.month.toInt()
+    val d = comps.day.toInt()
+    return LocalTimeFields(
+        year = y,
+        month = m,
+        day = d,
         hour = comps.hour.toInt(),
         minute = comps.minute.toInt(),
-        dayOfYear = 0,
+        // Day-of-year from civil-date math (Julian day number difference,
+        // 1-based): the NSCalendar ordinality API's Kotlin name varies across
+        // KGP releases, so it is not dependable here.
+        dayOfYear = julianDay(y, m, d) - julianDay(y, 1, 1) + 1,
     )
-    // dayOfYear needs an ordinality query; compute from components when the
-    // direct flag is unavailable.
-    val doy = NSCalendar.currentCalendar.ordinalityOfUnitInUnitForDate(
-        NSCalendarUnitDay, NSCalendarUnitYear, date, null,
-    )?.toInt() ?: 0
-    return fields.copy(dayOfYear = doy)
+}
+
+/** Proleptic Gregorian Julian day number for a civil date. */
+internal fun julianDay(y: Int, m: Int, d: Int): Int {
+    val a = (14 - m) / 12
+    val yy = y + 4800 - a
+    val mm = m + 12 * a - 3
+    return d + (153 * mm + 2) / 5 + 365 * yy + yy / 4 - yy / 100 + yy / 400 - 32045
 }
 
 internal actual fun currentTimeMillis(): Long =

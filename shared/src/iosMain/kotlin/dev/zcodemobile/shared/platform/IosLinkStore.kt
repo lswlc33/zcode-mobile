@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
@@ -16,6 +17,7 @@ import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
+import platform.CoreFoundation.CFDictionaryRef
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFAllocatorDefault
@@ -135,12 +137,12 @@ class IosLinkStore : LinkStore {
     private fun cfStr(s: String): CPointer<CFStringRef> =
         NSString.create(string = s) as CPointer<CFStringRef>
 
-    @Suppress("UNCHECKED_CAST")
-    private fun newMutableDict(capacity: Int): CPointer<platform.CoreFoundation.__CFDictionary> =
+    @Suppress("UNCHECKED_CAST", "CAST_PRIMARY_TO_ANY")
+    private fun newMutableDict(capacity: Int): CFDictionaryRef =
         CFDictionaryCreateMutable(kCFAllocatorDefault, capacity.convert(), null, null)
-            as CPointer<platform.CoreFoundation.__CFDictionary>
+            as CFDictionaryRef
 
-    private fun queryBase(account: String): CPointer<platform.CoreFoundation.__CFDictionary> {
+    private fun queryBase(account: String): CFDictionaryRef {
         val dict = newMutableDict(3)
         CFDictionaryAddValue(dict, kSecClass, kSecClassGenericPassword)
         CFDictionaryAddValue(dict, kSecAttrService, cfStr(SERVICE))

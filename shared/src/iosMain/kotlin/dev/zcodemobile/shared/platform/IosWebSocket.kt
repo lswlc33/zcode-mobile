@@ -11,6 +11,7 @@ import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionWebSocketMessage
 import platform.Foundation.NSData
 import platform.Foundation.NSString
+import platform.Foundation.create
 import platform.Foundation.NSURLSessionWebSocketTask
 import kotlin.concurrent.Volatile
 
