@@ -107,6 +107,12 @@ jobs:
 
       # 模拟器目的地的未签名构建（generic 不行——模拟器 framework 只在
       #iphonesimulator SDK 下产出）。产物是 .app，随后打包成可分发的 IPA。
+      - name: 调试：检查资产目录
+        run: |
+          find iosApp/Assets.xcassets -type f | head -10
+          cat iosApp/Assets.xcassets/AppIcon.appiconset/Contents.json
+          plutil -lint iosApp/ZcodeMobile/Info.plist
+
       - name: Xcode 构建未签名模拟器 app
         run: |
           set -euo pipefail
