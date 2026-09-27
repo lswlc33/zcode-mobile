@@ -64,15 +64,4 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-}tasks.register("checkFrameworkHeader") {
-    doLast {
-        val fw = file("build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework/Headers/ZcodeShared.h")
-        if (fw.exists()) {
-            val text = fw.readText()
-            listOf("MainViewController", "AppModel", "IosLinkStore").forEach {
-                println("HEADER-CONTAINS $it: ${text.contains(it)}")
-            }
-            println("HEADER-LINES: ${text.lines().size}")
-        } else println("HEADER MISSING")
-    }
 }
