@@ -6,13 +6,20 @@ import dev.zcodemobile.shared.data.SavedLink
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.value
 import platform.Foundation.NSData
+import platform.Foundation.NSDate
 import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.create
 import platform.Foundation.dataUsingEncoding
-import platform.Foundation.writeToFile
+import platform.Foundation.stringFromData
+import platform.Foundation.timeIntervalSince1970
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -24,17 +31,15 @@ import platform.Security.kSecClass
 import platform.Security.kSecClassGenericPassword
 import platform.Security.kSecReturnData
 import platform.Security.kSecValueData
-import platform.Foundation.NSDataReadOptionsMapped
-import platform.Foundation.NSDataReadingUncached
-import platform.Foundation.dataWithContentsOfFile
 
 /**
  * iOS [LinkStore]: each link serialized to one GenericPassword Keychain item
  * (service "dev.zcodemobile.app", account "link.<id>"). The relay hash is an
  * HMAC key, so the Keychain — not NSUserDefaults — is the only acceptable
- * home. The index of stored ids mirrors into NSUserDefaults because Keychain
- * enumeration is not practical through interop.
+ * home. The list of stored accounts mirrors into NSUserDefaults because
+ * bulk Keychain enumeration through interop is not worth the complexity.
  */
+@OptIn(ExperimentalForeignApi::class)
 class IosLinkStore : LinkStore {
 
     private val defaults = NSUserDefaults.standardUserDefaults
@@ -109,26 +114,21 @@ class IosLinkStore : LinkStore {
 
     private fun keychainSet(account: String, value: String) {
         val data = NSString.create(string = value).dataUsingEncoding(NSUTF8StringEncoding) ?: return
+        SecItemDelete(baseQuery(account))
         val addQuery = baseQuery(account) + mapOf<Any?, Any?>(
             kSecValueData to data,
             kSecAttrAccessible to kSecAttrAccessibleAfterFirstUnlock,
         )
-        // Replace-or-add: delete first, then add.
-        SecItemDelete(baseQuery(account))
         SecItemAdd(addQuery, null)
     }
 
-    private fun keychainGet(account: String): String? {
-        val query = baseQuery(account) + mapOf<Any?, Any?>(
-            kSecReturnData to true,
-        )
-        val result = kotlinx.cinterop.alloc<kotlinx.cinterop.CPointerVar<platform.CoreFoundation.CFDataRef>>()
-        val status = SecItemCopyMatching(query, kotlinx.cinterop.alloc<platform.CoreFoundation.CFTypeRefVar>().ptr)
-        if (status != 0) return null
-        // SecItemCopyMatching writes a CFDataRef into the result pointer.
-        val data = result.value ?: return null
-        val nsdata = data as? NSData ?: return null
-        return NSString.create(data = nsdata, encoding = NSUTF8StringEncoding) as? String
+    private fun keychainGet(account: String): String? = memScoped {
+        val query = baseQuery(account) + mapOf<Any?, Any?>(kSecReturnData to true)
+        val result = alloc<platform.CoreFoundation.CFTypeRefVar>()
+        val status = SecItemCopyMatching(query, result.ptr)
+        if (status != 0) return@memScoped null
+        val data = result.value as? NSData ?: return@memScoped null
+        NSString.create(data = data, encoding = NSUTF8StringEncoding) as? String
     }
 
     private fun keychainDelete(account: String) {

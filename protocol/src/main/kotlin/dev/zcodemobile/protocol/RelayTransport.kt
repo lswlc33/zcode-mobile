@@ -135,8 +135,8 @@ class RelayTransport(
          */
         fun calculateProof(passHash: String, nonce: String, role: String, deviceSid: String): String {
             val sig = hmacSha256(
-                passHash.toByteArray(),
-                "$nonce|$role|$deviceSid".toByteArray(),
+                passHash.toByteArray(Charsets.UTF_8),
+                "$nonce|$role|$deviceSid".toByteArray(Charsets.UTF_8),
             )
             return Base64.encodeUrlNoPad(sig)
         }
