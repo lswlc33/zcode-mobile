@@ -1,8 +1,9 @@
-name: 构建 APK
+name: 构建 APK 与 IPA
 
-# 每次分支推送：构建 release APK（R8 + 仅 ARM ABI，约 2.2 MB），
-# 以固定密钥签名（secrets 注入的 keystore.properties），重命名为
-# zcode_mobile_ci_<时间戳>.apk，上传工件并发布一份 prerelease。
+# 每次分支推送：
+#  - android job：release APK（R8 + 仅 ARM ABI，固定密钥签名）
+#  - ios job：iOS 模拟器用未签名 IPA（KMP framework + Xcode 构建，无需 Apple 开发者账号）
+#  两个产物统一进一份 prerelease。
 
 on:
   push:
@@ -17,8 +18,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  apk:
+  android:
     runs-on: ubuntu-latest
+    outputs:
+      stamp: ${{ steps.stamp.outputs.value }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +30,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # 缓存 Gradle 依赖与 wrapper 发行版，加速后续构建
       - uses: gradle/actions/setup-gradle@v4
 
       - name: 还原签名密钥（keystore + keystore.properties）
@@ -58,7 +60,7 @@ jobs:
       - name: 构建 release APK
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --stacktrace
+          ./gradlew :app:assembleRelease :protocol:jvmTest :shared:allTests :app:testDebugUnitTest --stacktrace
 
       - name: 校验签名并按时间戳重命名
         id: apk
@@ -80,15 +82,78 @@ jobs:
           path: ${{ steps.apk.outputs.name }}
           if-no-files-found: error
 
-      - name: 发布 prerelease
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # iOS 编译期校验：先单独跑一遍 KMP iOS 目标编译（klib + framework），
+      # 让 Kotlin 编译错误在这一步就暴露，而不是藏在 xcodebuild 里。
+      - name: 编译 KMP iOS 目标
+        run: |
+          chmod +x gradlew
+          ./gradlew :shared:linkReleaseFrameworkIosSimulatorArm64 :protocol:compileKotlinIosArm64 --stacktrace
+
+      - name: 构建时间戳（与 android job 同规则）
+        id: stamp
+        run: echo "value=$(TZ=Asia/Shanghai date +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+
+      # 模拟器目的地的未签名构建（generic 不行——模拟器 framework 只在
+      #iphonesimulator SDK 下产出）。产物是 .app，随后打包成可分发的 IPA。
+      - name: Xcode 构建未签名模拟器 app
+        run: |
+          set -euo pipefail
+          cd iosApp
+          xcodebuild -project ZcodeMobile.xcodeproj -scheme ZcodeMobile \
+            -configuration Release -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            | tail -40
+          APP="build/Build/Products/Release-iphonesimulator/ZcodeMobile.app"
+          test -d "$APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          IPA="zcode_mobile_ci_${{ steps.stamp.outputs.value }}.ipa"
+          zip -qry "$IPA" Payload
+          rm -rf Payload
+          ls -lh "$IPA"
+          echo "IPA=$IPA" >> "$GITHUB_ENV"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.IPA }}
+          path: ${{ env.IPA }}
+          if-no-files-found: error
+
+  release:
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    if: always() && needs.android.result == 'success' && needs.ios.result == 'success'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 发布 prerelease（APK + IPA）
         env:
           GH_TOKEN: ${{ github.token }}
-          STAMP: ${{ steps.stamp.outputs.value }}
-          APK: ${{ steps.apk.outputs.name }}
+          STAMP_ANDROID: ${{ needs.android.outputs.stamp }}
           COMMIT_SUBJECT: ${{ github.event.head_commit.message }}
         run: |
+          set -euo pipefail
+          ls -lh artifacts
+          # 时间戳取 android job 的（ios 用同一规则，同分钟内一致）
+          STAMP=$(ls artifacts/zcode_mobile_ci_*.apk | head -1 | grep -oE '[0-9]{12}')
           TAG="ci-${STAMP}"
-          # 同一分钟内多次推送会撞 tag，此时追加短 SHA
           if gh release view "$TAG" >/dev/null 2>&1; then
             TAG="ci-${STAMP}-${GITHUB_SHA::7}"
           fi
@@ -102,11 +167,11 @@ jobs:
             echo
             echo "- 分支: ${GITHUB_REF_NAME}"
             printf -- "- 提交: %s %s\n" "${GITHUB_SHA::7}" "$SUBJECT"
-            echo "- 仅含 ARM ABI（arm64-v8a / armeabi-v7a），适用于真机，x86 模拟器无法安装"
-            echo "- 固定密钥签名，可直接覆盖安装旧版本"
+            echo "- APK：仅含 ARM ABI（arm64-v8a / armeabi-v7a），适用于真机，固定密钥签名，可直接覆盖安装"
+            echo "- IPA：iOS 模拟器专用未签名包（解压后拖入模拟器安装），真机安装需要自行签名"
           } > notes.md
 
-          gh release create "$TAG" "$APK" \
+          gh release create "$TAG" artifacts/zcode_mobile_ci_* \
             --prerelease \
             --title "zcode_mobile_ci_${STAMP}" \
             --notes-file notes.md

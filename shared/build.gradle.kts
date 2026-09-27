@@ -21,6 +21,14 @@ kotlin {
     iosSimulatorArm64()
     iosX64()
 
+    // Export a dynamic framework per iOS target; the Xcode shell in iosApp/
+    // links against it and calls MainViewController.
+    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
+        binaries.framework {
+            baseName = "ZcodeShared"
+        }
+    }
+
     sourceSets {
         commonMain.dependencies {
             api(project(":protocol"))

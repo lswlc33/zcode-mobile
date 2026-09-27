@@ -27,7 +27,7 @@ private const val HEX = "0123456789abcdef"
 
 /** RFC 4122 v4 UUID. Entropy: clock + a per-process random seed; the relay
  *  uses these only as request ids, where collision-freedom is what matters. */
-internal fun randomUuid(): String {
+fun randomUuid(): String {
     val b = ByteArray(16)
     var seed = nowMillis() xor processSeed
     for (i in b.indices) {
