@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -37,6 +39,23 @@ android {
                 // Real devices only. Shipping x86/x86_64 here would add ~12 MB of
                 // barcode-scanner natives that no phone can load.
                 abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            }
+            // Signing config comes from keystore.properties (gitignored). CI and
+            // local builds share the same key so releases install over each
+            // other; without the file the APK stays unsigned as before.
+            val ksFile = rootProject.file("keystore.properties")
+            if (ksFile.exists()) {
+                val ks = Properties()
+                ksFile.inputStream().use { stream -> ks.load(stream) }
+                signingConfigs {
+                    create("release") {
+                        storeFile = rootProject.file(ks.getProperty("storeFile"))
+                        storePassword = ks.getProperty("storePassword")
+                        keyAlias = ks.getProperty("keyAlias")
+                        keyPassword = ks.getProperty("keyPassword")
+                    }
+                }
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }

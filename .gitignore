@@ -22,6 +22,7 @@ Thumbs.db
 # Signing keys — never commit a keystore.
 *.jks
 *.keystore
+*.keystore.b64
 keystore.properties
 
 # Secrets — the relay link is a temporary key to a paired desktop.

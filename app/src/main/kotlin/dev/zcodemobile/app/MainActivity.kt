@@ -23,6 +23,7 @@ import dev.zcodemobile.app.ui.conversation.ConversationScreen
 import dev.zcodemobile.app.ui.conversation.QueueAction
 import dev.zcodemobile.app.ui.conversation.RowAction
 import dev.zcodemobile.app.ui.sessions.AddLinkScreen
+import dev.zcodemobile.app.ui.sessions.HomeProjection
 import dev.zcodemobile.app.ui.sessions.HomeView
 import dev.zcodemobile.app.ui.sessions.SessionGroup
 import dev.zcodemobile.app.ui.sessions.SessionListScreen
@@ -36,9 +37,7 @@ import dev.zcodemobile.protocol.AppSettings
 import dev.zcodemobile.protocol.Commands
 import dev.zcodemobile.protocol.SessionsIndexState
 import dev.zcodemobile.protocol.ProviderSettingsView
-import dev.zcodemobile.protocol.TaskIndexRow
 import dev.zcodemobile.protocol.TaskIndexState
-import dev.zcodemobile.protocol.TaskSummary
 import dev.zcodemobile.protocol.WorkspaceConfigState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -352,10 +351,6 @@ class MainViewModel(private val app: ZCodeApp) : ViewModel() {
     @Suppress("unused")
     val workspaceConfig: StateFlow<WorkspaceConfigState> = session.workspaceConfig
 
-    /** Filter text, owned here so the row projection can honour it. */
-    private val _query = MutableStateFlow("")
-    val query: StateFlow<String> = _query.asStateFlow()
-
     /** Home timeline ordering. */
     private val _sortBy = MutableStateFlow(TaskSort.Updated)
     val sortBy: StateFlow<TaskSort> = _sortBy.asStateFlow()
@@ -478,32 +473,28 @@ class MainViewModel(private val app: ZCodeApp) : ViewModel() {
     /**
      * Unified list projection.
      *
-     * Two sources answer different questions: the bootstrap task list spans
-     * every workspace but is a point-in-time snapshot, while the sessions-index
-     * stream is live but only covers the bridged workspace. Prefer the live one
-     * where it applies and fall back to the snapshot elsewhere, rather than
-     * showing a stale list for the workspace the user is actually in.
+     * The projection itself lives in [HomeProjection] — pure, so its merging
+     * and ordering rules are unit tested without a device.
      */
     val rows: StateFlow<List<SessionRow>> = combine(
-        index, bootstrap, _query, _bridgedWorkspace,
-    ) { idx, boot, query, bridged ->
-        buildRows(idx, boot?.tasks.orEmpty(), query, bridged)
+        index, bootstrap, _bridgedWorkspace,
+    ) { idx, boot, bridged ->
+        HomeProjection.rows(idx, boot?.tasks.orEmpty(), bridged)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
      * Home screen projection: tasks grouped into project sections, ordered as
      * a timeline.
      *
-     * The task-index push replaces the fallback per workspace — a workspace it
-     * covers gets live membership (archived tasks excluded); anything else
-     * keeps the merged bootstrap/index rows.
+     * The task-index push supplies live membership (archived tasks excluded,
+     * pinned tasks leading); the merged [rows] fill in whatever it does not
+     * cover.
      */
     val homeGroups: StateFlow<List<SessionGroup>> = combine(
         session.taskIndex, rows, _sortBy,
     ) { idx, baseRows, sort ->
-        buildHomeGroups(idx, baseRows, sort)
+        HomeProjection.groups(idx, baseRows, sort)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
 
     init {
         // Reconnect on launch: the saved link is the user's only intent signal,
@@ -513,17 +504,6 @@ class MainViewModel(private val app: ZCodeApp) : ViewModel() {
             app.linkStore.links.value.firstOrNull()?.let { connect(it) }
         }
     }
-
-    /**
-     * Unified list projection.
-     *
-     * Two sources answer different questions: the bootstrap task list spans
-     * every workspace but is a point-in-time snapshot, while the sessions-index
-     * stream is live but only covers the bridged workspace. Prefer the live one
-     * where it applies and fall back to the snapshot elsewhere, rather than
-     * showing a stale list for the workspace the user is actually in.
-     */
-    fun setQuery(text: String) { _query.value = text }
 
     fun addLink(raw: String): String? {
         val link = try {
@@ -854,174 +834,5 @@ class MainViewModel(private val app: ZCodeApp) : ViewModel() {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
                     MainViewModel(app) as T
             }
-
-        /**
-         * Merge the live index with the bootstrap snapshot into one list.
-         *
-         * The live entries win for the bridged workspace because they carry the
-         * current phase and preview; the snapshot fills in every other
-         * workspace, which has no stream open.
-         */
-        private fun buildRows(
-            index: SessionsIndexState,
-            tasks: List<TaskSummary>,
-            query: String,
-            bridged: String?,
-        ): List<SessionRow> {
-            val live = index.sessions
-            val liveApplies = live.isNotEmpty() && bridged != null
-
-            val rows = if (liveApplies) {
-                val byId = tasks.associateBy { it.taskId }
-                live.map { e ->
-                    val task = byId[e.sessionId]
-                    SessionRow(
-                        sessionId = e.sessionId,
-                        title = e.displayTitle,
-                        workspacePath = e.workspaceId,
-                        workspaceLabel = task?.workspaceLabel,
-                        subtitle = listOfNotNull(
-                            task?.let { prettyModel(it.model) ?: it.provider },
-                            // The preview is model-authored Markdown, so it
-                            // arrives with headings and bullets attached.
-                            previewSnippet(e.lastAssistantPreview),
-                        ).joinToString(" · ").ifBlank { task?.workspaceLabel },
-                        status = e.phase,
-                        isRunning = e.isRunning,
-                        updatedAt = e.lastActivityAt ?: task?.updatedAt,
-                        hasCustomTitle = e.hasCustomTitle,
-                        live = true,
-                    )
-                }
-            } else {
-                tasks.map { t ->
-                    SessionRow(
-                        sessionId = t.taskId,
-                        title = t.title.ifBlank { "(无标题)" },
-                        workspacePath = t.workspacePath,
-                        workspaceLabel = t.workspaceLabel,
-                        subtitle = prettyModel(t.model) ?: t.provider,
-                        status = t.displayStatus,
-                        isRunning = t.displayStatus == "running",
-                        updatedAt = t.updatedAt,
-                        hasCustomTitle = false,
-                        live = false,
-                    )
-                }
-            }
-
-            val q = query.trim()
-            return if (q.isEmpty()) {
-                rows.sortedByDescending { it.updatedAt ?: 0L }
-            } else {
-                rows.filter {
-                    it.title.contains(q, ignoreCase = true) ||
-                        it.workspaceLabel?.contains(q, ignoreCase = true) == true ||
-                        it.subtitle?.contains(q, ignoreCase = true) == true
-                }.sortedByDescending { it.updatedAt ?: 0L }
-            }
-        }
-
-        /**
-         * Group tasks into project sections for the home timeline.
-         *
-         * A workspace the task-index push covers is taken wholesale from it
-         * (live membership, archived excluded); anything else falls back to
-         * the merged bootstrap/index rows.
-         */
-        private fun buildHomeGroups(
-            index: TaskIndexState,
-            fallback: List<SessionRow>,
-            sort: TaskSort,
-        ): List<SessionGroup> {
-            val pushByWs = index.rows.values
-                .filter { !it.archived }
-                .groupBy { it.workspacePath }
-            val fallbackByWs = fallback.groupBy { it.workspacePath.orEmpty() }
-            val paths = (pushByWs.keys + fallbackByWs.keys).filter { it.isNotBlank() }
-
-            return paths.map { ws ->
-                val rows = if (pushByWs.containsKey(ws)) {
-                    pushByWs[ws].orEmpty().map { it.toSessionRow() }
-                } else {
-                    fallbackByWs[ws].orEmpty()
-                }
-                SessionGroup(
-                    workspacePath = ws,
-                    label = ws.substringAfterLast('\\').ifBlank { ws },
-                    rows = sortRows(rows, sort),
-                )
-            }.sortedByDescending { group ->
-                group.rows.maxOfOrNull { it.updatedAt ?: 0L } ?: 0L
-            }
-        }
-
-        /**
-         * The wire model id is a routing path like
-         * `account:bigmodel-start-plan/GLM-5.3-Flash`; only the last segment
-         * names the model, the rest is provider plumbing the row has no room
-         * for. Falls back to the input when no `/` is present.
-         */
-        private fun prettyModel(model: String?): String? =
-            model?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: model
-
-        private fun sortRows(rows: List<SessionRow>, sort: TaskSort): List<SessionRow> =
-            when (sort) {
-                TaskSort.Updated -> rows.sortedByDescending { it.updatedAt ?: 0L }
-                TaskSort.Created -> rows.sortedByDescending { it.createdAt ?: it.updatedAt ?: 0L }
-            }
-
-        /** Project one task-index row into the shared list row shape. */
-        private fun TaskIndexRow.toSessionRow(): SessionRow = SessionRow(
-            sessionId = taskId,
-            title = meta.displayTitle,
-            workspacePath = workspacePath,
-            workspaceLabel = null,
-            subtitle = prettyModel(meta.model) ?: meta.provider,
-            status = liveStatus ?: meta.status,
-            isRunning = isRunning,
-            updatedAt = meta.updatedAt,
-            createdAt = meta.createdAt,
-            hasCustomTitle = meta.titleOverridden,
-            live = true,
-            isUnread = isUnread,
-        )
-
-        /**
-         * Turn an assistant preview into one readable list line.
-         *
-         * The host sends up to 120 characters of the model's own Markdown, so
-         * the raw value starts with things like `## 结果` or `- 第一项` and reads
-         * as noise in a one-line subtitle. Take the first line with actual
-         * prose, drop the leading Markdown markers, and cap it.
-         */
-        private fun previewSnippet(preview: String?): String? {
-            val first = preview
-                ?.lineSequence()
-                ?.map { it.trim() }
-                ?.firstOrNull { line ->
-                    line.isNotBlank() &&
-                        line.any { it.isLetterOrDigit() } &&
-                        // A bare code fence or horizontal rule carries no meaning.
-                        !line.all { it in "#-*_> \t`~" }
-                }
-                ?: return null
-
-            val cleaned = first
-                .trimStart('#', '-', '*', '>', ' ', '\t')
-                .replace(Regex("`+"), "")
-                .replace(Regex("\\s+"), " ")
-                .trim()
-
-            if (cleaned.isEmpty()) return null
-            return if (cleaned.length <= SNIPPET_MAX) {
-                cleaned
-            } else {
-                cleaned.take(SNIPPET_MAX).trimEnd() + "…"
-            }
-        }
-
-        /** Fits the subtitle inside one ellipsised line. */
-        private const val SNIPPET_MAX = 48
     }
 }

@@ -898,14 +898,17 @@ private fun Composer(
     }
 
     Surface(
-        // `background`, not `surfaceContainerHigh`: the in-bar controls are
-        // `chipBackground`, which is the same colour as `surfaceContainerHigh`
-        // in both themes — on that tint the input pill and the chips float
-        // invisibly on the bar. The page background behind the bar gives the
-        // contrast instead.
-        color = MaterialTheme.colorScheme.background,
+        // Same chrome as the header card: a translucent panel the transcript
+        // keeps scrolling behind, so the two bars read as one system.
+        //
+        // The controls inside therefore take the page background rather than
+        // `chipBackground`: that token IS `surfaceContainerHigh` in both
+        // themes, which is this card's own colour — on it the input pill and
+        // the chips would float invisibly.
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = RoundedCornerShape(26.dp),
+        shadowElevation = 8.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
@@ -953,7 +956,7 @@ private fun Composer(
             // One compact control row, mirroring the desktop composer:
             // + | 🛡 mode | ◯ model | 🧠 thought | ↑ send
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Fixed left cluster + flexible model name; the ring stays
+                // Fixed left cluster + a flexible model slot; the ring stays
                 // pinned at the far right of the bar.
                 Box(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -994,12 +997,16 @@ private fun Composer(
 
                         Spacer(Modifier.width(6.dp))
 
-                        Box(Modifier.weight(1f, fill = false)) {
+                        Box(Modifier.weight(1f)) {
+                            // The row's slack stays *outside* the chip: the
+                            // pill is only as wide as its label, so a short
+                            // model name leaves the blank to its left instead
+                            // of stretching a half-empty pill across it.
                             ComposerChip(
                                 icon = null,
                                 text = modelChipLabel(conversation, models),
                                 onClick = { modelSheet = true; onOpenModelPicker() },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.align(Alignment.CenterEnd),
                             )
                         }
 
@@ -1185,7 +1192,7 @@ private fun AttachmentStrip(
         attachments.forEach { a ->
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = tokens.chipBackground,
+                color = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
 
@@ -1223,7 +1230,7 @@ private fun AttachmentStrip(
         }
 
         if (uploading) {
-            Surface(shape = RoundedCornerShape(12.dp), color = tokens.chipBackground) {
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.background) {
 
                 Row(
                     Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1262,7 +1269,9 @@ private fun ComposerInput(
     val tokens = LocalZcTokens.current
     Box(
         Modifier
-            .background(tokens.chipBackground, RoundedCornerShape(26.dp))
+            // Page background, not `chipBackground`: see the composer card's
+            // note — the pill has to contrast with the translucent bar.
+            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(26.dp))
             .fillMaxWidth()
             .padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
     ) {
@@ -1324,7 +1333,7 @@ private fun ComposerCircleButton(
     val tokens = LocalZcTokens.current
     Surface(
         shape = CircleShape,
-        color = tokens.chipBackground,
+        color = MaterialTheme.colorScheme.background,
         modifier = Modifier.size(36.dp),
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
@@ -1366,7 +1375,7 @@ private fun SendButton(
     val tint = when {
         stop -> MaterialTheme.colorScheme.error
         enabled || sending -> MaterialTheme.colorScheme.primary
-        else -> tokens.chipBackground
+        else -> MaterialTheme.colorScheme.background
     }
     val contentTint = when {
         stop -> MaterialTheme.colorScheme.onError
@@ -1421,9 +1430,10 @@ private fun SendButton(
  * Compact control chip: optional leading icon + label.
  *
  * `text = null` renders the icon-only variant (the mode chip's fallback when
- * the row runs out of width). The caller owns the width policy: the model
- * chip is weighted so a long name ellipsizes instead of pushing its
- * neighbours out of the row.
+ * the row runs out of width). The chip is only ever as wide as its label: a
+ * short name must not leave a blank stretch inside the pill, so the row — not
+ * the chip — owns the slack. The caller bounds the width instead, letting a
+ * long name ellipsize rather than push its neighbours out.
  */
 @Composable
 private fun ComposerChip(
@@ -1435,7 +1445,7 @@ private fun ComposerChip(
     val tokens = LocalZcTokens.current
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = tokens.chipBackground,
+        color = MaterialTheme.colorScheme.background,
         modifier = modifier.clickable(onClick = onClick),
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
@@ -1660,7 +1670,7 @@ private fun GitRow(git: dev.zcodemobile.protocol.GitRepoInfo, onPickBranch: (Str
         Box {
             Surface(
                 shape = RoundedCornerShape(26.dp),
-                color = tokens.chipBackground,
+                color = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.clickable { menu = true },
             ) {

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedVisibility
@@ -282,16 +283,16 @@ fun SessionListScreen(
                         }
                     }
                     if (group.workspacePath !in collapsedGroups) {
-                        items(group.rows.size, key = { group.rows[it].key }) { i ->
+                        items(group.rows, key = { it.key }) { row ->
                             Box(Modifier.animateItem()) {
                                 SessionRowItem(
-                                    row = group.rows[i],
-                                    onOpen = { onOpenSession(group.rows[i]) },
-                                    onRename = { renaming = group.rows[i] },
-                                    onDelete = { deleting = group.rows[i] },
-                                    onPin = { onPinSession(group.rows[i], it) },
-                                    onArchive = { onArchiveSession(group.rows[i], it) },
-                                    onUnread = { onUnreadSession(group.rows[i], it) },
+                                    row = row,
+                                    onOpen = { onOpenSession(row) },
+                                    onRename = { renaming = row },
+                                    onDelete = { deleting = row },
+                                    onPin = { onPinSession(row, it) },
+                                    onArchive = { onArchiveSession(row, it) },
+                                    onUnread = { onUnreadSession(row, it) },
                                 )
                             }
                         }
@@ -299,21 +300,28 @@ fun SessionListScreen(
                 }
             }
         } else {
-            val flat = remember(visibleGroups) { visibleGroups.flatMap { it.rows } }
+            // One global timeline for 时间 rather than the project blocks in
+            // section order: with several projects the blocks read as random.
+            val flat = remember(visibleGroups, sortBy) {
+                HomeProjection.timeline(visibleGroups, sortBy)
+            }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = statusTop + chromeReserve, bottom = navBottom + 96.dp),
             ) {
-                items(flat.size, key = { flat[it].key }) { i ->
+                items(flat, key = { it.key }) { row ->
                     Box(Modifier.animateItem()) {
                         SessionRowItem(
-                            row = flat[i],
-                            onOpen = { onOpenSession(flat[i]) },
-                            onRename = { renaming = flat[i] },
-                            onDelete = { deleting = flat[i] },
-                            onPin = { onPinSession(flat[i], it) },
-                            onArchive = { onArchiveSession(flat[i], it) },
-                            onUnread = { onUnreadSession(flat[i], it) },
+                            row = row,
+                            // No section header here, so the row itself has to
+                            // say which project it belongs to.
+                            showWorkspace = true,
+                            onOpen = { onOpenSession(row) },
+                            onRename = { renaming = row },
+                            onDelete = { deleting = row },
+                            onPin = { onPinSession(row, it) },
+                            onArchive = { onArchiveSession(row, it) },
+                            onUnread = { onUnreadSession(row, it) },
                         )
                     }
                 }
@@ -670,6 +678,9 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
 @Composable
 private fun GroupHeader(group: SessionGroup, collapsed: Boolean, onToggle: () -> Unit) {
     val tokens = LocalZcTokens.current
+    // With several sessions running in different folders, the per-project
+    // count alone does not say where the work is happening.
+    val running = group.rows.count { it.isRunning }
     Row(
         Modifier
             .fillMaxWidth()
@@ -692,9 +703,9 @@ private fun GroupHeader(group: SessionGroup, collapsed: Boolean, onToggle: () ->
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            "${group.rows.size}",
+            if (running > 0) "${group.rows.size} · $running 运行中" else "${group.rows.size}",
             style = MaterialTheme.typography.labelSmall,
-            color = tokens.secondaryText,
+            color = if (running > 0) MaterialTheme.colorScheme.primary else tokens.secondaryText,
         )
         Spacer(Modifier.width(4.dp))
         Icon(
@@ -752,9 +763,18 @@ private fun SessionRowItem(
     onPin: (Boolean) -> Unit = {},
     onArchive: (Boolean) -> Unit = {},
     onUnread: (Boolean) -> Unit = {},
+    /** Name the project inline; only the flat 时间 view needs it. */
+    showWorkspace: Boolean = false,
 ) {
     val tokens = LocalZcTokens.current
     var menu by remember { mutableStateOf(false) }
+
+    // The folder label belongs in front only where no section header carries
+    // it; otherwise the model and the preview have the line to themselves.
+    val secondary = listOfNotNull(
+        row.workspaceLabel.takeIf { showWorkspace },
+        row.subtitle,
+    ).joinToString(" · ").ifBlank { row.workspaceLabel ?: "—" }
 
     Row(
         Modifier
@@ -799,7 +819,7 @@ private fun SessionRowItem(
                     Spacer(Modifier.width(5.dp))
                 }
                 Text(
-                    row.subtitle ?: row.workspaceLabel ?: "—",
+                    secondary,
                     style = MaterialTheme.typography.bodySmall,
                     color = tokens.secondaryText,
                     maxLines = 1,
@@ -836,9 +856,9 @@ private fun SessionRowItem(
             }
             ZcDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(
-                    text = { Text("置顶") },
+                    text = { Text(if (row.isPinned) "取消置顶" else "置顶") },
                     leadingIcon = { Icon(Icons.Default.PushPin, null) },
-                    onClick = { menu = false; onPin(true) },
+                    onClick = { menu = false; onPin(!row.isPinned) },
                 )
                 DropdownMenuItem(
                     text = { Text("归档任务") },
@@ -965,8 +985,7 @@ private fun LinkList(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
-        items(links.size, key = { links[it].id }) { i ->
-            val link = links[i]
+        items(links, key = { it.id }) { link ->
             Row(
                 Modifier
                     .fillMaxWidth()

@@ -1,0 +1,112 @@
+name: 构建 APK
+
+# 每次分支推送：构建 release APK（R8 + 仅 ARM ABI，约 2.2 MB），
+# 以固定密钥签名（secrets 注入的 keystore.properties），重命名为
+# zcode_mobile_ci_<时间戳>.apk，上传工件并发布一份 prerelease。
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # 缓存 Gradle 依赖与 wrapper 发行版，加速后续构建
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 还原签名密钥（keystore + keystore.properties）
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::RELEASE_KEYSTORE_B64 未配置：仓库 Secrets 里需要 keystore 的 base64 与密码"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > zcode-mobile-release.keystore
+          cat > keystore.properties <<EOF
+          storeFile=zcode-mobile-release.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=zcode-mobile
+          keyPassword=$KEYSTORE_PASSWORD
+          EOF
+          # 同一份密钥才能覆盖安装，这里校验解码结果确实是合法 keystore
+          keytool -list -keystore zcode-mobile-release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" -alias zcode-mobile >/dev/null
+
+      - name: 构建时间戳（东八区；APK 名与 tag 共用）
+        id: stamp
+        run: echo "value=$(TZ=Asia/Shanghai date +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+
+      - name: 构建 release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --stacktrace
+
+      - name: 校验签名并按时间戳重命名
+        id: apk
+        env:
+          STAMP: ${{ steps.stamp.outputs.value }}
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK="zcode_mobile_ci_${STAMP}.apk"
+          "$BT/apksigner" verify app/build/outputs/apk/release/app-release.apk
+          mv app/build/outputs/apk/release/app-release.apk "$APK"
+          ls -lh "$APK"
+          echo "name=$APK" >> "$GITHUB_OUTPUT"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.name }}
+          if-no-files-found: error
+
+      - name: 发布 prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAMP: ${{ steps.stamp.outputs.value }}
+          APK: ${{ steps.apk.outputs.name }}
+          COMMIT_SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          TAG="ci-${STAMP}"
+          # 同一分钟内多次推送会撞 tag，此时追加短 SHA
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            TAG="ci-${STAMP}-${GITHUB_SHA::7}"
+          fi
+
+          # 提交信息经 printf 注入，避免反引号/$ 被展开
+          SUBJECT=$(printf '%s' "${COMMIT_SUBJECT:-}" | head -n 1)
+          [ -n "$SUBJECT" ] || SUBJECT="(无提交信息)"
+
+          {
+            echo "自动构建的尝鲜版本（prerelease），未经充分测试。"
+            echo
+            echo "- 分支: ${GITHUB_REF_NAME}"
+            printf -- "- 提交: %s %s\n" "${GITHUB_SHA::7}" "$SUBJECT"
+            echo "- 仅含 ARM ABI（arm64-v8a / armeabi-v7a），适用于真机，x86 模拟器无法安装"
+            echo "- 固定密钥签名，可直接覆盖安装旧版本"
+          } > notes.md
+
+          gh release create "$TAG" "$APK" \
+            --prerelease \
+            --title "zcode_mobile_ci_${STAMP}" \
+            --notes-file notes.md
