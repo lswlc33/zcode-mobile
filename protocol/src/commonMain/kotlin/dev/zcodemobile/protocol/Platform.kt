@@ -10,6 +10,9 @@ package dev.zcodemobile.protocol
  */
 internal expect fun nowMillis(): Long
 
+/** Public wall-clock accessor for clients of the protocol module. */
+fun nowMillisCompat(): Long = nowMillis()
+
 internal expect fun hmacSha256(key: ByteArray, message: ByteArray): ByteArray
 
 internal expect fun sha256(bytes: ByteArray): ByteArray

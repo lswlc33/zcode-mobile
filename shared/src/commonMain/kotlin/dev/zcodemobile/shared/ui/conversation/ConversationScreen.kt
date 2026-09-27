@@ -114,6 +114,7 @@ import dev.zcodemobile.protocol.Commands
 import dev.zcodemobile.protocol.PendingInteraction
 import dev.zcodemobile.protocol.Row as TranscriptRow
 import dev.zcodemobile.shared.ui.ZcIcons
+import dev.zcodemobile.shared.ui.Format
 
 /**
  * Conversation view: header, transcript, composer.
@@ -1554,7 +1555,7 @@ private fun ContextDetailDialog(
                         Text(label, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.weight(1f))
                         Text(
-                            if (share < 0.001f) "0%" else "%.1f%%".format(share * 100),
+                            if (share < 0.001f) "0%" else Format.f1((share * 100).toDouble()) + "%",
                             style = MaterialTheme.typography.labelMedium,
                             color = tokens.secondaryText,
                         )
@@ -1568,7 +1569,7 @@ private fun ContextDetailDialog(
                         Text("平均缓存命中率", style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.weight(1f))
                         Text(
-                            "%.1f%%".format(rate * 100),
+                            Format.f1(rate.toDouble() * 100) + "%",
                             style = MaterialTheme.typography.labelMedium,
                             color = tokens.secondaryText,
                         )
@@ -1585,8 +1586,8 @@ private fun ContextDetailDialog(
  */
 private fun formatCountZh(value: Long?): String = when {
     value == null -> "—"
-    value >= 100_000_000 -> "%.1f亿".format(value / 100_000_000.0)
-    value >= 10_000 -> "%.1f万".format(value / 10_000.0)
+    value >= 100_000_000 -> Format.f1(value / 100_000_000.0) + "亿"
+    value >= 10_000 -> Format.f1(value / 10_000.0) + "万"
     else -> value.toString()
 }
 

@@ -91,12 +91,11 @@ import dev.zcodemobile.shared.ui.components.ZcAlertDialog
 import dev.zcodemobile.shared.ui.components.ZcDropdownMenu
 import dev.zcodemobile.shared.ui.theme.Dims
 import dev.zcodemobile.shared.ui.theme.LocalZcTokens
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 import kotlin.math.roundToInt
 import dev.zcodemobile.shared.ui.ZcIcons
+import dev.zcodemobile.shared.ui.Format
+import dev.zcodemobile.shared.ui.currentTimeMillis
+import dev.zcodemobile.shared.ui.localTimeFields
 
 /**
  * Home screen: every task of the desktop, grouped into project sections and
@@ -1031,22 +1030,19 @@ private fun LinkList(
 // time formatting: today / yesterday / date, matching list conventions
 // ─────────────────────────────────────────────────────────────────────────────
 
-private val hhmm = SimpleDateFormat("HH:mm", Locale.getDefault())
-private val mmdd = SimpleDateFormat("MM-dd", Locale.getDefault())
-
 fun relativeTime(millis: Long?): String {
     if (millis == null || millis <= 0) return ""
-    val now = Calendar.getInstance()
-    val then = Calendar.getInstance().apply { timeInMillis = millis }
+    val now = currentTimeMillis()
+    val nowFields = localTimeFields(now)
+    val thenFields = localTimeFields(millis)
 
-    val sameDay = now.get(Calendar.YEAR) == then.get(Calendar.YEAR) &&
-        now.get(Calendar.DAY_OF_YEAR) == then.get(Calendar.DAY_OF_YEAR)
-    if (sameDay) return hhmm.format(Date(millis))
+    val sameDay = nowFields.year == thenFields.year && nowFields.dayOfYear == thenFields.dayOfYear
+    if (sameDay) return Format.hhmm(millis)
 
-    val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
-    val isYesterday = yesterday.get(Calendar.YEAR) == then.get(Calendar.YEAR) &&
-        yesterday.get(Calendar.DAY_OF_YEAR) == then.get(Calendar.DAY_OF_YEAR)
-    if (isYesterday) return "昨天 ${hhmm.format(Date(millis))}"
+    val yesterdayMillis = now - 24 * 60 * 60 * 1000
+    val yFields = localTimeFields(yesterdayMillis)
+    val isYesterday = yFields.year == thenFields.year && yFields.dayOfYear == thenFields.dayOfYear
+    if (isYesterday) return "昨天 ${Format.hhmm(millis)}"
 
-    return mmdd.format(Date(millis))
+    return Format.mmdd(millis)
 }

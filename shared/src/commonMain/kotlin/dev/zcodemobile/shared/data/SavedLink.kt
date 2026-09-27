@@ -16,7 +16,7 @@ data class SavedLink(
     val savedAt: Long,
 ) {
     /** The relay link is a temporary key; surface its staleness. */
-    val ageMillis: Long get() = System.currentTimeMillis() - link.timestamp
+    val ageMillis: Long get() = dev.zcodemobile.protocol.nowMillisCompat() - link.timestamp
 
     val displayName: String
         get() = label ?: link.deviceName ?: link.deviceMid ?: link.deviceSid

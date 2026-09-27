@@ -74,10 +74,8 @@ import dev.zcodemobile.shared.ui.theme.LocalZcTokens
 import dev.zcodemobile.protocol.FileChange
 import dev.zcodemobile.protocol.Row
 import dev.zcodemobile.protocol.fileChangeOf
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import dev.zcodemobile.shared.ui.ZcIcons
+import dev.zcodemobile.shared.ui.Format
 
 /**
  * Renderers for the v4 row kinds.
@@ -268,7 +266,7 @@ private fun turnDurationOf(row: Row): String? {
     if (ms <= 0) return null
     val totalSec = ms / 1000
     return when {
-        totalSec < 60 -> String.format("%.1f 秒", ms / 1000.0)
+        totalSec < 60 -> Format.f1(ms / 1000.0) + " 秒"
         totalSec < 3600 -> "${totalSec / 60} 分 ${totalSec % 60} 秒"
         else -> "${totalSec / 3600} 时 ${(totalSec % 3600) / 60} 分"
     }
@@ -914,10 +912,8 @@ private fun durationOf(row: Row): String? {
     val end = num("endedAt") ?: return null
     val ms = end - start
     if (ms <= 0) return null
-    return if (ms < 1000) "${ms}ms" else String.format("%.1fs", ms / 1000.0)
+    return if (ms < 1000) "${ms}ms" else Format.f1(ms / 1000.0) + "s"
 }
 
-private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-
 fun formatTime(millis: Long?): String =
-    millis?.let { timeFormat.format(Date(it)) }.orEmpty()
+    millis?.let { Format.hhmm(it) }.orEmpty()
