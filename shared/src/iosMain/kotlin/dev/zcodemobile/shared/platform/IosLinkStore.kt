@@ -8,11 +8,22 @@ import dev.zcodemobile.shared.data.SavedLink
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.value
+import platform.CoreFoundation.CFDictionaryAddValue
+import platform.CoreFoundation.CFDictionaryCreateMutable
+import platform.CoreFoundation.CFStringRef
+import platform.CoreFoundation.CFTypeRefVar
+import platform.CoreFoundation.kCFAllocatorDefault
+import platform.CoreFoundation.kCFBooleanTrue
 import platform.Foundation.NSArray
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
-import platform.Foundation.NSMutableDictionary
-import platform.Foundation.NSMutableString
+import platform.Foundation.NSMutableArray
 import platform.Foundation.NSString
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSUTF8StringEncoding
@@ -38,10 +49,9 @@ import platform.Security.kSecValueData
  * home. The list of stored accounts mirrors into NSUserDefaults because bulk
  * Keychain enumeration through interop is not worth the complexity.
  *
- * Keychain queries are NSMutableDictionary-based: the SecItem* cinterop
- * bindings take CFDictionaryRef, and an NSMutableDictionary IS a CFDictionary
- * (toll-free bridged) but Kotlin needs the explicit cast via the `as Any`
- * CFType route — see [cfRef].
+ * Keychain queries are raw CFDictionaryRefs built with the C API: the cinterop
+ * SecItem bindings take CFDictionaryRef / CFTypeRef, and neither Kotlin Map
+ * nor NSMutableDictionary typechecks against those signatures.
  */
 class IosLinkStore : LinkStore {
 
@@ -84,7 +94,7 @@ class IosLinkStore : LinkStore {
     private fun readIds(): List<String> {
         val arr = defaults.objectForKey(KEY_IDS) as? NSArray ?: return emptyList()
         return (0 until arr.count.toInt()).mapNotNull { i ->
-            arr.objectAtIndex(i.toULong()) as? String
+            (arr.objectAtIndex(i.convert()) as? NSString) as? String
         }
     }
 
@@ -118,39 +128,46 @@ class IosLinkStore : LinkStore {
         )
     }
 
-    // ── Keychain helpers (GenericPassword, NSMutableDictionary queries) ──
+    // ── Keychain helpers (raw CFDictionary queries) ───────────────────────
 
-    private fun baseQuery(account: String): NSMutableDictionary {
-        val q = NSMutableDictionary()
-        q.setObjectForKey(kSecClassGenericPassword as NSString, kSecClass)
-        q.setObjectForKey(NSString.create(string = SERVICE), kSecAttrService)
-        q.setObjectForKey(NSString.create(string = account), kSecAttrAccount)
-        return q
+    /** NSString bridges to CFStringRef; keep the pointer form for CF calls. */
+    private fun cfStr(s: String): CPointer<CFStringRef>? =
+        (NSString.create(string = s) as Any) as? CPointer<CFStringRef>
+
+    private fun newMutableDict(capacity: Int): CPointer<*> =
+        CFDictionaryCreateMutable(kCFAllocatorDefault, capacity.convert(), null, null) as CPointer<*>
+
+    private fun queryBase(account: String): CPointer<*> {
+        val dict = newMutableDict(3)
+        CFDictionaryAddValue(dict, kSecClass, kSecClassGenericPassword)
+        CFDictionaryAddValue(dict, kSecAttrService, cfStr(SERVICE))
+        CFDictionaryAddValue(dict, kSecAttrAccount, cfStr(account))
+        return dict
     }
 
     private fun keychainSet(account: String, value: String) {
         keychainDelete(account)
-        val q = baseQuery(account)
-        q.setObjectForKey(
-            NSString.create(string = value).dataUsingEncoding(NSUTF8StringEncoding)!!,
-            kSecValueData,
-        )
-        q.setObjectForKey(kSecAttrAccessibleAfterFirstUnlock as NSString, kSecAttrAccessible)
-        SecItemAdd(q, null)
+        val dict = newMutableDict(5)
+        CFDictionaryAddValue(dict, kSecClass, kSecClassGenericPassword)
+        CFDictionaryAddValue(dict, kSecAttrService, cfStr(SERVICE))
+        CFDictionaryAddValue(dict, kSecAttrAccount, cfStr(account))
+        CFDictionaryAddValue(dict, kSecValueData, cfStr(value))
+        CFDictionaryAddValue(dict, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock)
+        SecItemAdd(dict, null)
     }
 
-    private fun keychainGet(account: String): String? {
-        val q = baseQuery(account)
-        q.setObjectForKey(NSNumberBoolean(true), kSecReturnData)
-        val out = NSMutableDictionary()
-        val status = SecItemCopyMatching(q, out)
-        if (status != 0) return null
-        val data = out.objectForKey(kSecValueData as String) as? NSData ?: return null
-        return NSString.create(data = data, encoding = NSUTF8StringEncoding) as? String
+    private fun keychainGet(account: String): String? = memScoped {
+        val dict = queryBase(account)
+        CFDictionaryAddValue(dict, kSecReturnData, kCFBooleanTrue)
+        val out = alloc<CFTypeRefVar>()
+        val status = SecItemCopyMatching(dict, out.ptr)
+        if (status != 0) return@memScoped null
+        val data = out.value as? NSData ?: return@memScoped null
+        NSString.create(data = data, encoding = NSUTF8StringEncoding) as? String
     }
 
     private fun keychainDelete(account: String) {
-        SecItemDelete(baseQuery(account))
+        SecItemDelete(queryBase(account))
     }
 
     private companion object {
@@ -158,6 +175,3 @@ class IosLinkStore : LinkStore {
         const val KEY_IDS = "link_accounts"
     }
 }
-
-/** NSNumber boxing for Kotlin booleans, used for kSecReturnData. */
-private fun NSNumberBoolean(value: Boolean) = platform.Foundation.NSNumber(number = value)

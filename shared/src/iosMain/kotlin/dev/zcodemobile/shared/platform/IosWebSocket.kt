@@ -1,20 +1,16 @@
 package dev.zcodemobile.shared.platform
 
+import dev.zcodemobile.protocol.WebSocketConnection
+import dev.zcodemobile.protocol.WebSocketFactory
+import dev.zcodemobile.protocol.WebSocketListener
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSData
-import platform.Foundation.NSString
 import platform.Foundation.NSURL
-import platform.Foundation.NSUTF8StringEncoding
-import platform.Foundation.create
-import platform.Foundation.dataUsingEncoding
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionWebSocketMessage
 import platform.Foundation.NSURLSessionWebSocketTask
-import platform.Foundation.cancelWithCloseCode
 import platform.Foundation.resume
-import platform.Foundation.sendMessage
 
 /**
  * iOS WebSocket transport on NSURLSession, behind the same [WebSocketFactory]
@@ -22,9 +18,9 @@ import platform.Foundation.sendMessage
  *
  * The protocol layer drives everything off listener callbacks, so this adapter
  * keeps a self-perpetuating `receiveMessage` loop: each completed read either
- * forwards a text frame or reports close/failure. `open` fires after the first
- * successful ping — the same "connection truly up" signal the relay expects
- * before `auth_init`.
+ * forwards a text frame or reports close/failure. `onOpen` fires after the
+ * first successful ping — the same "connection truly up" signal the relay
+ * expects before `auth_init`.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IosWebSocketFactory : WebSocketFactory {
@@ -33,7 +29,7 @@ class IosWebSocketFactory : WebSocketFactory {
         val session = NSURLSession.sessionWithConfiguration(
             NSURLSessionConfiguration.defaultSessionConfiguration,
         )
-        val task = session.webSocketTaskWithURL(NSURL(string = url))
+        val task = session.webSocketTaskWithURL(NSURL.URLWithString(url)!!)
         val conn = IosWebSocketConnection(task, listener)
         task.resume()
         conn.start()
@@ -57,7 +53,7 @@ private class IosWebSocketConnection(
         // A successful pong proves the handshake completed.
         task.sendPingWithCompletionHandler { error ->
             if (error != null) {
-                fail(error.localizedDescription)
+                fail("websocket ping failed: ${error.localizedDescription}")
             } else if (!closed) {
                 listener.onOpen()
             }
@@ -69,7 +65,7 @@ private class IosWebSocketConnection(
         if (closed) return
         task.receiveMessageWithCompletionHandler { message, error ->
             when {
-                error != null -> fail(error.localizedDescription)
+                error != null -> fail(error.localizedDescription ?: "socket error")
                 message == null -> fail("socket closed by peer")
                 else -> {
                     val text = message.string
@@ -90,7 +86,7 @@ private class IosWebSocketConnection(
         if (closed) return
         val msg = NSURLSessionWebSocketMessage(text)
         task.sendMessage(msg) { error ->
-            if (error != null) fail(error.localizedDescription)
+            if (error != null) fail(error.localizedDescription ?: "send failed")
         }
     }
 
