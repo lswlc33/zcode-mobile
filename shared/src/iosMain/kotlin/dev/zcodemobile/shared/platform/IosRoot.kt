@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.zcodemobile.shared.ui.sessions.SessionListScreen
 import dev.zcodemobile.shared.ui.theme.ZCodeTheme
+import kotlinx.coroutines.launch
 
 /**
  * The iOS root screen. Deliberately minimal for this milestone: it renders
@@ -54,14 +55,14 @@ fun IosRoot(model: AppModel) {
                     onAddLink = {},
                     onScan = {},
                     onDeleteLink = { model.linkStore.remove(it.id) },
-                    onOpenLink = { model.scope.launchConnect(model, it) },
+                    onOpenLink = { link -> connect(model, link) },
                     onOpenSession = {},
                     onNewSession = {},
                     onRenameSession = { _, _ -> },
                     onDeleteSession = {},
-                    onPinSession = { _, _, _ -> },
-                    onArchiveSession = { _, _, _ -> },
-                    onUnreadSession = { _, _, _ -> },
+                    onPinSession = { _, _ -> },
+                    onArchiveSession = { _, _ -> },
+                    onUnreadSession = { _, _ -> },
                     onOpenSettings = {},
                     onReconnect = {},
                     onDisconnect = {},
@@ -71,8 +72,8 @@ fun IosRoot(model: AppModel) {
     }
 }
 
-private fun kotlinx.coroutines.CoroutineScope.launchConnect(model: AppModel, link: dev.zcodemobile.shared.data.SavedLink) {
-    launch {
+private fun connect(model: AppModel, link: dev.zcodemobile.shared.data.SavedLink) {
+    model.scope.launch {
         runCatching { model.session.connect(link.link) }
     }
 }
