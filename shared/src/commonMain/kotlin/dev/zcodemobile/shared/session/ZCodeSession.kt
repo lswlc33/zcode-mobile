@@ -1335,7 +1335,7 @@ class ZCodeSession(
         fragments.remove(id)
         val joined = entry.join()
         runCatching {
-            applyTopicFrame(Json.asMap(Json.decode(String(joined, Charsets.UTF_8))))
+            applyTopicFrame(Json.asMap(Json.decode(joined.decodeToString())))
         }.onFailure { logger("fragment reassembly failed: ${it.message}") }
     }
 
@@ -1427,7 +1427,7 @@ class ZCodeSession(
         fragments.remove(id)
         val joined = entry.join()
         return runCatching {
-            apply(Json.asMap(Json.decode(String(joined, Charsets.UTF_8))))
+            apply(Json.asMap(Json.decode(joined.decodeToString())))
         }.onFailure { logger("fragment reassembly failed: ${it.message}") }.getOrDefault(false)
     }
 

@@ -84,7 +84,7 @@ object Vql {
         when (data) {
             null -> w.writeByte(UNDEFINED)
             is String -> {
-                val bytes = data.toByteArray(Charsets.UTF_8)
+                val bytes = data.encodeToByteArray()
                 w.writeByte(STRING); writeInt(w, bytes.size); w.write(bytes)
             }
             is ByteArray -> {
@@ -99,11 +99,11 @@ object Vql {
             }
             is Boolean -> {
                 // Booleans ride the JSON object fallback, as in the reference impl.
-                val bytes = data.toString().toByteArray(Charsets.UTF_8)
+                val bytes = data.toString().encodeToByteArray()
                 w.writeByte(OBJECT); writeInt(w, bytes.size); w.write(bytes)
             }
             else -> {
-                val bytes = Json.encode(data).toByteArray(Charsets.UTF_8)
+                val bytes = Json.encode(data).encodeToByteArray()
                 w.writeByte(OBJECT); writeInt(w, bytes.size); w.write(bytes)
             }
         }
@@ -112,7 +112,7 @@ object Vql {
     fun deserialize(r: Reader): Any? {
         return when (val type = r.readByte()) {
             UNDEFINED -> null
-            STRING -> String(r.read(readInt(r)), Charsets.UTF_8)
+            STRING -> r.read(readInt(r)).decodeToString()
             BUFFER -> r.read(readInt(r))
             VS_BUFFER -> r.read(readInt(r))
             ARRAY -> {
@@ -121,7 +121,7 @@ object Vql {
                 repeat(n) { list.add(deserialize(r)) }
                 list
             }
-            OBJECT -> Json.decode(String(r.read(readInt(r)), Charsets.UTF_8))
+            OBJECT -> Json.decode(r.read(readInt(r)).decodeToString())
             INT -> readInt(r)
             else -> throw IllegalStateException("vql: unknown type tag $type")
         }
