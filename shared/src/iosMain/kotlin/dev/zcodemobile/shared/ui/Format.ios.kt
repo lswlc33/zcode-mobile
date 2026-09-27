@@ -45,4 +45,4 @@ internal fun julianDay(y: Int, m: Int, d: Int): Int {
 }
 
 internal actual fun currentTimeMillis(): Long =
-    (NSDate.date.timeIntervalSince1970 * 1000).toLong()
+    (NSDate().timeIntervalSince1970 * 1000).toLong()

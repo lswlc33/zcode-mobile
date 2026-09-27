@@ -72,7 +72,7 @@ class IosLinkStore : LinkStore {
             link.deviceName ?: "",
             link.appVersion ?: "",
             label ?: "",
-            (NSDate.date.timeIntervalSince1970 * 1000).toLong().toString(),
+            (NSDate().timeIntervalSince1970 * 1000).toLong().toString(),
         ).joinToString("\u0000")
 
         keychainSet(account = key(id), value = serialized)
