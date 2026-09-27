@@ -10,7 +10,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         window = UIWindow(frame: UIScreen.main.bounds)
-        let root = MainViewControllerKt.MainViewController()
+        // Top-level Kotlin function MainViewController() from Main.kt is
+        // exported to ObjC/Swift directly (no "*Kt" class in Kotlin/Native).
+        let root = MainViewController()
         window?.rootViewController = root
         window?.makeKeyAndVisible()
         return true
