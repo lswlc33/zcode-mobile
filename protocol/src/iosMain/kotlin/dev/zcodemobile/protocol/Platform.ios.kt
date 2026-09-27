@@ -1,8 +1,10 @@
 package dev.zcodemobile.protocol
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.UByteVarOf
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import platform.CoreCrypto.CC_SHA256
 import platform.CoreCrypto.CCHmac
@@ -39,7 +41,13 @@ internal actual fun sha256(bytes: ByteArray): ByteArray {
     val out = ByteArray(SHA256_LEN)
     bytes.usePinned { p ->
         out.usePinned { o ->
-            CC_SHA256(p.addressOf(0), bytes.size.convert(), o.addressOf(0))
+            // CC_SHA256's data/output are UByteVar-typed in the cinterop
+            // bindings; reinterpret the ByteVar pointers to match.
+            CC_SHA256(
+                p.addressOf(0).reinterpret<UByteVarOf<UByte>>(),
+                bytes.size.convert(),
+                o.addressOf(0).reinterpret<UByteVarOf<UByte>>(),
+            )
         }
     }
     return out
