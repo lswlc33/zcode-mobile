@@ -139,7 +139,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\" && ./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "test -d \"$SRCROOT/../shared/build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework\" || { echo \"error: ZcodeShared.framework missing - run :shared:linkReleaseFrameworkIosSimulatorArm64 first\"; exit 1; }\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
