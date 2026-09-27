@@ -9,8 +9,10 @@ import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionWebSocketMessage
+import platform.Foundation.NSData
+import platform.Foundation.NSString
 import platform.Foundation.NSURLSessionWebSocketTask
-import platform.Foundation.resume
+import kotlin.concurrent.Volatile
 
 /**
  * iOS WebSocket transport on NSURLSession, behind the same [WebSocketFactory]
@@ -51,7 +53,7 @@ private class IosWebSocketConnection(
     /** Kicks off open-detection and the receive loop. */
     fun start() {
         // A successful pong proves the handshake completed.
-        task.sendPingWithCompletionHandler { error ->
+        task.sendPingWithPongReceiveHandler { error ->
             if (error != null) {
                 fail("websocket ping failed: ${error.localizedDescription}")
             } else if (!closed) {
@@ -93,7 +95,8 @@ private class IosWebSocketConnection(
     override fun close(code: Int, reason: String) {
         if (closed) return
         closed = true
-        task.cancelWithCloseCode(code.toLong(), reason)
+        val reasonData = (NSString.create(string = reason) as Any) as? NSData
+        task.cancelWithCloseCode(code.toLong(), reasonData)
         listener.onClosed(code, reason)
     }
 }

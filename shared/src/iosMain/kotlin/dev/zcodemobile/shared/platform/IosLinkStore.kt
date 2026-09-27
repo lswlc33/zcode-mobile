@@ -101,7 +101,7 @@ class IosLinkStore : LinkStore {
     private fun writeIds(ids: List<String>) {
         val arr = NSMutableArray()
         ids.forEach { arr.addObject(it) }
-        defaults.setObjectForKey(arr, KEY_IDS)
+        defaults.setObject(arr, forKey = KEY_IDS)
     }
 
     private fun loadAll(): List<SavedLink> {

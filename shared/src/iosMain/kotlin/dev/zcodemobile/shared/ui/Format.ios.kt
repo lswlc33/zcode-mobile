@@ -33,7 +33,7 @@ internal actual fun localTimeFields(millis: Long): LocalTimeFields {
     // direct flag is unavailable.
     val doy = NSCalendar.currentCalendar.ordinalityOfUnitInUnitForDate(
         NSCalendarUnitDay, NSCalendarUnitYear, date, null,
-    ) ?: 0
+    )?.toInt() ?: 0
     return fields.copy(dayOfYear = doy)
 }
 
