@@ -65,3 +65,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+tasks.register("printSharedSrcDirs") {
+    doLast {
+        kotlin.sourceSets
+            .filter { it.name.contains("ios", ignoreCase = true) || it.name == "commonMain" }
+            .forEach { println("SRCSET ${it.name}: " + it.kotlin.srcDirs) }
+    }
+}
+
+tasks.register("checkFrameworkHeader") {
+    doLast {
+        val fw = file("build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework/Headers/ZcodeShared.h")
+        if (fw.exists()) {
+            val text = fw.readText()
+            listOf("MainViewController", "AppModel", "IosLinkStore").forEach {
+                println("HEADER-CONTAINS $it: ${text.contains(it)}")
+            }
+            println("HEADER-LINES: ${text.lines().size}")
+        } else println("HEADER MISSING")
+    }
+}

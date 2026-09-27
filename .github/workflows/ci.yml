@@ -116,13 +116,15 @@ jobs:
       - name: 调试 framework 内容
         run: |
           FW=shared/build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework
-          ls "$FW" || true
-          echo "--- Headers ---"
-          cat "$FW/Headers/ZcodeShared.h" 2>/dev/null | grep -iE "MainView|interface" | head -10
-          echo "--- Modules ---"
-          ls "$FW/Modules" 2>/dev/null || true
-          echo "--- symbols ---"
-          nm -gU "$FW/ZcodeShared" 2>/dev/null | grep -i mainview | head -5
+          ls "$FW"
+          echo "--- our symbols in header ---"
+          grep -cE "AppModel|IosLinkStore|MainViewController|AppServices" "$FW/Headers/ZcodeShared.h" || true
+          grep -nE "MainViewController" "$FW/Headers/ZcodeShared.h" | head -5 || true
+          echo "--- interface count ---"
+          grep -c "@interface" "$FW/Headers/ZcodeShared.h" || true
+          echo "--- nm symbol count ---"
+          nm "$FW/ZcodeShared" 2>/dev/null | wc -l || true
+          nm "$FW/ZcodeShared" 2>/dev/null | grep -ciE "MainViewController" || true
 
       - name: Xcode 构建未签名模拟器 app
         run: |
