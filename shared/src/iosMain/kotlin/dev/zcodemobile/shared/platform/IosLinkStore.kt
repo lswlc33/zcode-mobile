@@ -31,7 +31,6 @@ import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.create
 import platform.Foundation.dataUsingEncoding
-import platform.Foundation.timeIntervalSince1970
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -72,7 +71,7 @@ class IosLinkStore : LinkStore {
             link.deviceName ?: "",
             link.appVersion ?: "",
             label ?: "",
-            (NSDate().timeIntervalSince1970 * 1000).toLong().toString(),
+            ((NSDate().timeIntervalSinceReferenceDate + 978307200.0) * 1000).toLong().toString(),
         ).joinToString("\u0000")
 
         keychainSet(account = key(id), value = serialized)
