@@ -8,11 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		AA0000012E00000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000022E00000000000001 /* AppDelegate.swift */; };
+		AA0000012E00000000000004 /* ZcodeShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000022E00000000000004 /* ZcodeShared.framework */; };
+		AA0000012E00000000000005 /* ZcodeShared.framework in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; fileRef = AA0000022E00000000000004 /* ZcodeShared.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		AA0000022E00000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AA0000022E00000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA0000022E00000000000004 /* ZcodeShared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ZcodeShared.framework; path = ../shared/build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework; sourceTree = "<group>"; };
 		AA0000022E00000000000010 /* ZcodeMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZcodeMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -21,6 +24,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0000012E00000000000004 /* ZcodeShared.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -63,6 +67,7 @@
 				AA0000082E00000000000001 /* Sources */,
 				AA0000032E00000000000001 /* Frameworks */,
 				AA0000092E00000000000001 /* Resources */,
+				AA00000D2E00000000000001 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -136,6 +141,20 @@
 			shellScript = "cd \"$SRCROOT/..\" && ./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA00000D2E00000000000001 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				AA0000012E00000000000005 /* ZcodeShared.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		AA0000082E00000000000001 /* Sources */ = {
