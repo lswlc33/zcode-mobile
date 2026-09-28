@@ -107,6 +107,11 @@ jobs:
 
       # 模拟器目的地的未签名构建（generic 不行——模拟器 framework 只在
       #iphonesimulator SDK 下产出）。产物是 .app，随后打包成可分发的 IPA。
+      - name: 调试 framework header
+        run: |
+          FW=shared/build/bin/iosSimulatorArm64/releaseFramework/ZcodeShared.framework
+          sed -n '1076,1092p' "$FW/Headers/ZcodeShared.h" || true
+
       - name: Xcode 构建未签名模拟器 app
         run: |
           set -euo pipefail
