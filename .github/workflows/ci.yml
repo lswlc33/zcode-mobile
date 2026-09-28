@@ -128,7 +128,7 @@ jobs:
           IPA="zcode_mobile_ci_${{ steps.stamp.outputs.value }}.ipa"
           zip -qry "$IPA" Payload
           rm -rf Payload
-          ls -lh "$IPA"
+          mv "$IPA" "$GITHUB_WORKSPACE/"
           echo "IPA=$IPA" >> "$GITHUB_ENV"
 
       - name: 上传构建产物
