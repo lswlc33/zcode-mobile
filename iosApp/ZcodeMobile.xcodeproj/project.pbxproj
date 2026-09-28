@@ -64,8 +64,8 @@
 			buildConfigurationList = AA0000062E00000000000001;
 			buildPhases = (
 				AA0000072E00000000000001 /* ShellScript */,
-				AA0000082E00000000000001 /* Sources */,
 				AA0000032E00000000000001 /* Frameworks */,
+				AA0000082E00000000000001 /* Sources */,
 				AA0000092E00000000000001 /* Resources */,
 				AA00000D2E00000000000001 /* Embed Frameworks */,
 			);
