@@ -269,6 +269,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				ARCHS = arm64;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.zcodemobile.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
