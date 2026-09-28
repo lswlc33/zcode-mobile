@@ -320,3 +320,61 @@ node decode-transcript.mjs transcript-probe.json
 ## 12. 一句话总结
 
 协议层**完整且经过实机验证**（34 命令 / 全部通道方法 / 双向数据流），UI 覆盖了日常使用的主路径，文档齐全到可以照着重新实现一个客户端。**主要缺口是"有协议支持但没界面"的那几块，以及无法在没有模拟器的环境下做回归。**
+
+---
+
+## 13. 2026-09-28 多平台（iOS）适配记录
+
+在原 Android 客户端基础上完成了 KMP 多平台改造，CI 三 job（android/ios/release）全绿，
+prerelease 同时含签名 APK 与未签名 iOS 模拟器 IPA。
+
+### 13.1 新模块布局
+
+```
+protocol/   KMP：jvm + iosArm64 + iosSimulatorArm64 + iosX64（源码仍在 src/main，srcDirs 映射）
+shared/     KMP + Compose Multiplatform 1.8.2：
+  commonMain  ZCodeSession（原 app/session）、全部通用 UI（原 app/ui）、ZcIcons 自绘图标
+  androidMain Format（Calendar 实现）
+  iosMain     IosWebSocket（NSURLSession）/ IosLinkStore（Keychain）/ IosUiPrefs /
+              Format（NSCalendar）/ AppModel / MainViewController 入口
+app/        Android 壳：MainActivity、扫码、AndroidLinkStore/AndroidUiPrefs、OkHttp
+iosApp/     手写 Xcode 工程（CODE_SIGNING_ALLOWED=NO 可构建），引用 shared 链接产物
+```
+
+### 13.2 CI（.github/workflows/ci.yml）
+
+- android（ubuntu）：测试 + 签名 release APK
+- ios（macos）：linkReleaseFrameworkIosSimulatorArm64 → xcodebuild（ARCHS=arm64，
+  CODE_SIGNING_ALLOWED=NO，generic iOS Simulator）→ Payload 打包 IPA
+- release（ubuntu）：两个产物进同一 prerelease（tag ci-<时间戳>）
+
+### 13.3 踩坑记录（iOS 侧）
+
+1. **Windows 上 Kotlin/Native iOS 目标被 KGP 禁用**（需要 Apple SDK），
+   `kotlin.native.ignoreDisabledTargets=true` 只是隐藏警告。本机只能验证 JVM/Android，
+   iOS 编译验证全部由 CI macOS runner 承担。
+2. **KGP 版本必须全仓统一**（现 2.1.21，root buildscript `apply false`），
+   否则 `kotlinNativeBundleBuildService` 跨项目类加载器冲突。
+3. **Kotlin/Native stdlib 无** `String.toByteArray(Charsets)` / `String(ByteArray, Charset)`
+   —— 用 `encodeToByteArray()` / `decodeToString()`。
+4. **material-icons-extended 的 iOS klib 从未发布**（CMP 1.8.2 映射 1.7.3，
+   available-at 指向 404）。UI 用自绘 ZcIcons（material-design-icons path 数据内嵌）。
+5. **Kotlin/Native 顶层函数导出**：`Main.kt` 的函数挂在 ObjC 类
+   `ZcodeSharedMainKt`，Swift 里经 swift_name 映射为 `MainKt.MainViewController()`。
+6. **kSec 常量是 CFString**，Keychain 查询用 CFDictionaryCreateMutable 原生 API 构建；
+   KMP framework 的 kCCDigestLength 未导出，SHA256 长度写常量 32。
+7. **Xcode 26 generic 模拟器目标默认编双架构**，须 `ARCHS=arm64`
+   （Kotlin framework 只有 arm64 slice）。
+8. **手写 pbxproj 的 Run Script phase**：Xcode 26 新构建引擎下 `alwaysOutOfDate = 1`
+   必须显式声明，且 Frameworks phase 应在 Sources 前。
+9. **本机可用 konan klib 验证 iOS API 名**：
+   `~/.konan/kotlin-native-prebuilt-*/klib/platform/ios_simulator_arm64/*.klib`
+   的 linkdata/*.knm 里 grep selector（如 `sendPingWithPongReceiveHandler`，
+   不是文档写的 sendPingWithCompletionHandler）。
+
+### 13.4 iOS 现状
+
+- 首页列表（SessionListScreen）+ 连接/重连链路已接通；添加链接/扫码/会话页导航
+  尚未接入 iOS 壳（UI 组件本身已跨平台可用）。
+- IPA 为模拟器专用未签名包；真机分发需开发者账号签名。
+
